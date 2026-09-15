@@ -53,14 +53,17 @@ export default function Navbar({
           </div>
 
           {/* Desktop Navigation Links */}
-          <nav className="hidden md:flex items-center gap-1">
-            {navItems.map((item) => {
+          <nav className="hidden md:flex items-center gap-1 shrink-0">
+            {navItems.map((item, idx) => {
               const isActive = activeCategory === item.id && !searchQuery;
+              const isSecondary = idx >= 4; // Disney+, Netflix, Box Office visible on xl
               return (
                 <button
                   key={item.id}
                   onClick={() => onCategorySelect(item.id)}
-                  className={`px-3.5 py-2 rounded-xl text-sm font-semibold transition-all ${
+                  className={`px-3 py-1.5 rounded-xl text-xs xl:text-sm font-semibold whitespace-nowrap transition-all ${
+                    isSecondary ? 'hidden xl:inline-block' : 'inline-block'
+                  } ${
                     isActive
                       ? 'bg-[#E50914] text-white shadow-md shadow-[#E50914]/25'
                       : 'text-slate-300 hover:text-white hover:bg-white/5'
@@ -72,24 +75,24 @@ export default function Navbar({
             })}
           </nav>
 
-          {/* Action Bar (Search, Watchlist, iPhone PWA) */}
-          <div className="flex items-center gap-2 sm:gap-3">
+          {/* Action Bar (Search, Watchlist, Apple/Android PWA) */}
+          <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
             {/* Search Bar Input (Desktop) */}
-            <div className="hidden sm:flex relative items-center">
+            <div className="hidden sm:flex relative items-center shrink-0">
               <input
                 type="text"
-                placeholder="Cari film atau serial (misal Spider-Man)..."
+                placeholder="Cari film atau serial..."
                 value={searchQuery}
                 onChange={(e) => onSearchChange(e.target.value)}
-                className="w-56 md:w-72 pl-9 pr-8 py-2 text-sm bg-white/5 border border-white/10 rounded-full text-white placeholder:text-slate-400 focus:outline-none focus:border-[#E50914] focus:ring-1 focus:ring-[#E50914] focus:w-80 transition-all"
+                className="w-32 lg:w-44 xl:w-60 pl-8 pr-7 py-1.5 text-xs lg:text-sm bg-white/5 border border-white/10 rounded-full text-white placeholder:text-slate-400 focus:outline-none focus:border-[#E50914] focus:ring-1 focus:ring-[#E50914] focus:w-48 lg:focus:w-56 xl:focus:w-72 transition-all"
               />
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 pointer-events-none" />
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 pointer-events-none" />
               {searchQuery && (
                 <button
                   onClick={() => onSearchChange('')}
-                  className="absolute right-2.5 text-slate-400 hover:text-white p-0.5"
+                  className="absolute right-2 text-slate-400 hover:text-white p-0.5"
                 >
-                  <X className="w-4 h-4" />
+                  <X className="w-3.5 h-3.5" />
                 </button>
               )}
             </div>
@@ -106,26 +109,26 @@ export default function Navbar({
             {/* Watchlist Button */}
             <button
               onClick={onOpenWatchlist}
-              className="relative p-2 sm:px-3 sm:py-2 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 transition-colors flex items-center gap-2"
+              className="relative p-2 sm:px-2.5 sm:py-1.5 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0"
               title="Daftar Tonton"
             >
-              <Bookmark className="w-5 h-5 text-[#FFD700]" />
-              <span className="hidden lg:inline text-xs font-semibold">Watchlist</span>
+              <Bookmark className="w-4 h-4 text-[#FFD700]" />
+              <span className="hidden xl:inline text-xs font-semibold">Watchlist</span>
               {watchlistCount > 0 && (
-                <span className="absolute -top-1 -right-1 sm:static sm:top-auto sm:right-auto px-1.5 py-0.5 text-[10px] font-bold bg-[#E50914] text-white rounded-full min-w-5 text-center shadow">
+                <span className="px-1.5 py-0.2 text-[10px] font-bold bg-[#E50914] text-white rounded-full min-w-4 text-center shadow">
                   {watchlistCount}
                 </span>
               )}
             </button>
 
-            {/* iPhone 14 PWA install guide trigger */}
+            {/* PWA install guide trigger */}
             <button
               onClick={onOpenPwaGuide}
-              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-cyan-500/10 text-[#00E5FF] border border-[#00E5FF]/30 hover:bg-cyan-500/20 transition-all"
-              title="Pasang di iPhone 14 / HP"
+              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-cyan-500/10 text-[#00E5FF] border border-[#00E5FF]/30 hover:bg-cyan-500/20 transition-all whitespace-nowrap shrink-0"
+              title="Pasang di Layar Utama (Apple / Android)"
             >
-              <Smartphone className="w-3.5 h-3.5" />
-              <span>Install di Layar</span>
+              <Smartphone className="w-3.5 h-3.5 shrink-0" />
+              <span>Pasang di Layar</span>
             </button>
 
             {/* Mobile Hamburger Menu */}
@@ -193,7 +196,7 @@ export default function Navbar({
               className="col-span-2 px-3 py-2.5 rounded-xl text-xs font-bold text-center bg-[#00E5FF]/15 text-[#00E5FF] border border-[#00E5FF]/30 flex items-center justify-center gap-2 mt-1"
             >
               <Smartphone className="w-4 h-4" />
-              <span>Tambahkan ke Layar Utama iPhone 14</span>
+              <span>Tambahkan ke Layar Utama (Apple / Android)</span>
             </button>
           </div>
         )}

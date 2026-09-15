@@ -30,7 +30,7 @@ export default function PwaInstallPrompt({ isOpen, onClose }) {
               </span>
             </div>
             <p className="text-xs text-slate-300 mt-0.5">
-              Pasang di Layar Utama iPhone 14 & Semua HP
+              Pasang di Layar Utama Perangkat Apple (iOS / iPadOS) & Android
             </p>
           </div>
         </div>
@@ -39,14 +39,14 @@ export default function PwaInstallPrompt({ isOpen, onClose }) {
         <div className="p-3.5 rounded-2xl bg-cyan-500/10 border border-[#00E5FF]/30 text-xs text-cyan-200 flex items-start gap-2.5">
           <Sparkles className="w-4 h-4 text-[#00E5FF] shrink-0 mt-0.5" />
           <span>
-            Aplikasi web ini mendukung mode <strong>Standalone</strong>. Setelah ditambahkan ke layar utama, web akan berjalan layar penuh seperti aplikasi native iPhone tanpa address bar safari!
+            Aplikasi web ini mendukung mode <strong>Standalone</strong>. Setelah ditambahkan ke layar utama perangkat Apple (iPhone / iPad) atau Android, web akan berjalan layar penuh seperti aplikasi native tanpa address bar peramban!
           </span>
         </div>
 
-        {/* iPhone 14 Step by Step */}
+        {/* Apple Device Step by Step */}
         <div className="space-y-3.5">
           <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-            Panduan iPhone 14 (Safari)
+            Panduan Perangkat Apple (Safari iPhone & iPad)
           </h4>
 
           <div className="space-y-2.5">
@@ -55,7 +55,7 @@ export default function PwaInstallPrompt({ isOpen, onClose }) {
                 1
               </div>
               <div className="text-xs text-slate-200">
-                Buka web ini menggunakan browser <strong>Safari</strong> di iPhone 14 kamu.
+                Buka web ini menggunakan browser <strong>Safari</strong> di perangkat Apple (iPhone / iPad) kamu.
               </div>
             </div>
 

@@ -246,7 +246,7 @@ export default function App() {
           </span>
         </div>
         <p className="text-xs text-slate-400 max-w-md mx-auto">
-          Nonton Film & Serial TV Dubbing Indonesia berkualitas Full HD secara gratis. Responsif untuk iPhone 14, Tablet, dan Desktop.
+          Nonton Film & Serial TV Dubbing Indonesia berkualitas Full HD secara gratis.
         </p>
         <div className="flex flex-wrap items-center justify-center gap-4 text-xs text-slate-500 pt-2">
           <span>© 2026 McDubindoFlix</span>
@@ -255,17 +255,8 @@ export default function App() {
             onClick={() => setIsPwaGuideOpen(true)}
             className="hover:text-[#00E5FF] transition-colors"
           >
-            Pasang di iPhone 14 (PWA)
+            Tambahkan ke Layar Utama (Apple / Android)
           </button>
-          <span>•</span>
-          <a
-            href="https://github.com/Bagaskara02/McDubindoFlix.git"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="hover:text-white transition-colors"
-          >
-            GitHub Repository
-          </a>
         </div>
       </footer>
 
