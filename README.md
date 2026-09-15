@@ -37,5 +37,3 @@ npm run dev
 ```
 
 ---
-
-Dibuat dengan ❤️ buat kamu yang lebih suka nonton sambil santai dengerin dubbing Indonesia!
