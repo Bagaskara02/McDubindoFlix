@@ -47,11 +47,29 @@ export default async function handler(req, res) {
     while ((m = reUV.exec(html)) !== null) {
       sources.push(`https://stream.dubbindo.site/${m[0]}`);
     }
-    const reDirect = /https?:\/\/stream\.dubbindo\.site\/[^\s"'<>]+\.mp4/gi;
-    while ((m = reDirect.exec(html)) !== null) {
-      sources.push(m[0]);
+    function isValidVideo(u) {
+      if (!u || typeof u !== 'string') return false;
+      const l = u.toLowerCase();
+      if (
+        l.includes('.png') ||
+        l.includes('.jpg') ||
+        l.includes('.jpeg') ||
+        l.includes('.gif') ||
+        l.includes('.svg') ||
+        l.includes('logo')
+      ) {
+        return false;
+      }
+      return (
+        l.includes('.mp4') ||
+        l.includes('driveduo') ||
+        l.includes('uvideoweb') ||
+        l.includes('.m3u8') ||
+        l.includes('stream.dubbindo.site')
+      );
     }
-    return Array.from(new Set(sources));
+
+    return Array.from(new Set(sources.filter(isValidVideo)));
   }
 
   try {

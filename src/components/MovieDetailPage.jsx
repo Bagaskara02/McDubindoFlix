@@ -158,7 +158,7 @@ export default function MovieDetailPage({
       {/* Main Detail Page Body */}
       <main className="flex-1 w-full max-w-[1440px] mx-auto px-3 sm:px-5 lg:px-8 py-4 sm:py-6 space-y-6 sm:space-y-8">
         {/* Cinema Video Player Container */}
-        <section ref={playerRef} className="w-full max-h-[82vh] mx-auto">
+        <section ref={playerRef} className="w-full mx-auto relative z-20">
           <VideoPlayer
             movie={currentMovie}
             cleanTitle={cleanTitle}
@@ -167,7 +167,7 @@ export default function MovieDetailPage({
         </section>
 
         {/* Quality & Series Episode Playlist Section */}
-        <section className="p-4 sm:p-5 rounded-2xl bg-[#141422] border border-[#232338] space-y-4">
+        <section className="relative z-10 p-4 sm:p-6 rounded-2xl sm:rounded-3xl bg-[#141422] border border-[#232338] space-y-4 shadow-xl">
           {/* Quality Selector */}
           <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-white/5">
             <div className="flex items-center gap-2.5">

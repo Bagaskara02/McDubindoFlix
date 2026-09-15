@@ -14,7 +14,8 @@ import {
   AlertCircle,
   ExternalLink,
   Sliders,
-  Check,
+  ArrowLeft,
+  Tv,
 } from 'lucide-react';
 import { getStreamSource, getEmbedCode } from '../services/dataService';
 import { sanitizeId, sanitizeUrl } from '../utils/security';
@@ -31,6 +32,14 @@ function formatTime(seconds) {
   }
   return `${pad(m)}:${pad(s)}`;
 }
+
+const isIPhoneDevice = () => {
+  if (typeof navigator === 'undefined') return false;
+  return (
+    /iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1 && !window.MSStream)
+  );
+};
 
 export default function VideoPlayer({ movie, cleanTitle, onEpisodeChange }) {
   const containerRef = useRef(null);
@@ -69,10 +78,17 @@ export default function VideoPlayer({ movie, cleanTitle, onEpisodeChange }) {
   const [fitMode, setFitMode] = useState('contain'); // contain | cover | fill
   const [fitToast, setFitToast] = useState('');
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isPseudoLandscape, setIsPseudoLandscape] = useState(false);
+  const [deviceOrientation, setDeviceOrientation] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth > window.innerHeight ? 'landscape' : 'portrait';
+    }
+    return 'portrait';
+  });
   const [showControls, setShowControls] = useState(true);
 
   // Skip indicator ripples (-10s / +10s)
-  const [skipIndicator, setSkipIndicator] = useState(null); // { type: 'rewind' | 'forward', text: '-10s' | '+10s' }
+  const [skipIndicator, setSkipIndicator] = useState(null);
 
   // Extract embed URL for fallback
   const embedCode = getEmbedCode(movie);
@@ -81,6 +97,20 @@ export default function VideoPlayer({ movie, cleanTitle, onEpisodeChange }) {
   const safeExternalUrl = sanitizeUrl(
     movie.url || (movie.slug ? `https://www.dubbindo.site/watch/${encodeURIComponent(movie.slug)}` : '')
   );
+
+  // Track device physical orientation changes
+  useEffect(() => {
+    const handleOrientation = () => {
+      const isLand = window.innerWidth > window.innerHeight;
+      setDeviceOrientation(isLand ? 'landscape' : 'portrait');
+    };
+    window.addEventListener('resize', handleOrientation);
+    window.addEventListener('orientationchange', handleOrientation);
+    return () => {
+      window.removeEventListener('resize', handleOrientation);
+      window.removeEventListener('orientationchange', handleOrientation);
+    };
+  }, []);
 
   // Fetch direct stream URL when movie changes
   useEffect(() => {
@@ -100,7 +130,6 @@ export default function VideoPlayer({ movie, cleanTitle, onEpisodeChange }) {
           setStreamUrl(source.url);
           setPlayerMode('direct');
         } else if (embedUrl) {
-          // If no direct stream found, fallback to embed
           setStreamUrl('');
           setPlayerMode('embed');
           setIsLoading(false);
@@ -166,7 +195,7 @@ export default function VideoPlayer({ movie, cleanTitle, onEpisodeChange }) {
     };
   }, [isPlaying, startHideControlsTimer]);
 
-  // Track Fullscreen state
+  // Track standard Fullscreen API state
   useEffect(() => {
     const handleFsChange = () => {
       const isFs = !!(
@@ -175,7 +204,9 @@ export default function VideoPlayer({ movie, cleanTitle, onEpisodeChange }) {
         document.mozFullScreenElement ||
         document.msFullscreenElement
       );
-      setIsFullscreen(isFs);
+      if (!isFs && !isPseudoLandscape) {
+        setIsFullscreen(false);
+      }
     };
 
     document.addEventListener('fullscreenchange', handleFsChange);
@@ -183,6 +214,32 @@ export default function VideoPlayer({ movie, cleanTitle, onEpisodeChange }) {
     return () => {
       document.removeEventListener('fullscreenchange', handleFsChange);
       document.removeEventListener('webkitfullscreenchange', handleFsChange);
+    };
+  }, [isPseudoLandscape]);
+
+  // Track iOS Safari native fullscreen events
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    const onBeginFs = () => setIsFullscreen(true);
+    const onEndFs = () => {
+      if (!isPseudoLandscape) setIsFullscreen(false);
+    };
+
+    video.addEventListener('webkitbeginfullscreen', onBeginFs);
+    video.addEventListener('webkitendfullscreen', onEndFs);
+
+    return () => {
+      video.removeEventListener('webkitbeginfullscreen', onBeginFs);
+      video.removeEventListener('webkitendfullscreen', onEndFs);
+    };
+  }, [streamUrl, isPseudoLandscape]);
+
+  // Cleanup body overflow on unmount
+  useEffect(() => {
+    return () => {
+      document.body.style.overflow = '';
     };
   }, []);
 
@@ -218,23 +275,85 @@ export default function VideoPlayer({ movie, cleanTitle, onEpisodeChange }) {
     handleUserActivity();
   };
 
-  // Fullscreen toggle
+  // Enter / Exit Simulated Landscape Fullscreen Mode (Works on iPhone with Portrait Lock ON!)
+  const enterPseudoLandscape = () => {
+    setIsPseudoLandscape(true);
+    setIsFullscreen(true);
+    document.body.style.overflow = 'hidden';
+    window.scrollTo({ top: 0, behavior: 'instant' });
+    handleUserActivity();
+  };
+
+  const exitPseudoLandscape = () => {
+    setIsPseudoLandscape(false);
+    setIsFullscreen(false);
+    document.body.style.overflow = '';
+    handleUserActivity();
+  };
+
+  // Fullscreen toggle (Handles desktop, Android, and iPhone landscape rotation)
   const toggleFullscreen = () => {
-    if (!containerRef.current) return;
-    if (!document.fullscreenElement && !document.webkitFullscreenElement) {
-      if (containerRef.current.requestFullscreen) {
-        containerRef.current.requestFullscreen().catch(() => {});
-      } else if (containerRef.current.webkitRequestFullscreen) {
-        containerRef.current.webkitRequestFullscreen();
-      }
-    } else {
+    // 1. If currently in pseudo landscape mode, exit it
+    if (isPseudoLandscape) {
+      exitPseudoLandscape();
+      return;
+    }
+
+    // 2. If in native browser fullscreen, exit it
+    if (document.fullscreenElement || document.webkitFullscreenElement) {
       if (document.exitFullscreen) {
         document.exitFullscreen().catch(() => {});
       } else if (document.webkitExitFullscreen) {
         document.webkitExitFullscreen();
       }
+      if (screen.orientation && screen.orientation.unlock) {
+        screen.orientation.unlock().catch(() => {});
+      }
+      setIsFullscreen(false);
+      return;
     }
+
+    // 3. iPhone / iOS:
+    // User requested: "buat ketika fullscreen langsung miring atau landscape tanpa harus mematikan kunci orentasi"
+    // On iPhone, standard element.requestFullscreen is not supported.
+    // By activating pseudo landscape, we rotate the player 90 degrees so it instantly fills the screen in landscape!
+    if (isIPhoneDevice()) {
+      enterPseudoLandscape();
+      return;
+    }
+
+    // 4. Desktop / Android / Other devices:
+    if (containerRef.current) {
+      if (containerRef.current.requestFullscreen) {
+        containerRef.current
+          .requestFullscreen()
+          .then(() => {
+            setIsFullscreen(true);
+            if (screen.orientation && screen.orientation.lock) {
+              screen.orientation.lock('landscape').catch(() => {});
+            }
+          })
+          .catch(() => {
+            enterPseudoLandscape();
+          });
+      } else if (containerRef.current.webkitRequestFullscreen) {
+        containerRef.current.webkitRequestFullscreen();
+        setIsFullscreen(true);
+      } else {
+        enterPseudoLandscape();
+      }
+    } else {
+      enterPseudoLandscape();
+    }
+
     handleUserActivity();
+  };
+
+  // Dedicated launcher for Apple's native AVPlayer
+  const openNativeIOSPlayer = () => {
+    if (videoRef.current && videoRef.current.webkitEnterFullscreen) {
+      videoRef.current.webkitEnterFullscreen();
+    }
   };
 
   // Fit mode cycle
@@ -276,12 +395,15 @@ export default function VideoPlayer({ movie, cleanTitle, onEpisodeChange }) {
     handleUserActivity();
   };
 
-  // Timeline / Scrubber events
+  // Timeline / Scrubber events with rotated coordinates support
+  const isRotated = isPseudoLandscape && deviceOrientation === 'portrait';
+
   const handleScrubberClick = (e) => {
     if (!progressBarRef.current || !videoRef.current || !duration) return;
     const rect = progressBarRef.current.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const percentage = Math.max(0, Math.min(1, clickX / rect.width));
+    const clickPos = isRotated ? e.clientY - rect.top : e.clientX - rect.left;
+    const totalSpan = isRotated ? rect.height : rect.width;
+    const percentage = Math.max(0, Math.min(1, clickPos / totalSpan));
     const newTime = percentage * duration;
     videoRef.current.currentTime = newTime;
     setCurrentTime(newTime);
@@ -291,8 +413,9 @@ export default function VideoPlayer({ movie, cleanTitle, onEpisodeChange }) {
   const handleScrubberMouseMove = (e) => {
     if (!progressBarRef.current || !duration) return;
     const rect = progressBarRef.current.getBoundingClientRect();
-    const hoverX = e.clientX - rect.left;
-    const percentage = Math.max(0, Math.min(1, hoverX / rect.width));
+    const clickPos = isRotated ? e.clientY - rect.top : e.clientX - rect.left;
+    const totalSpan = isRotated ? rect.height : rect.width;
+    const percentage = Math.max(0, Math.min(1, clickPos / totalSpan));
     setHoverPosition(percentage * 100);
     setHoverTime(percentage * duration);
   };
@@ -304,8 +427,10 @@ export default function VideoPlayer({ movie, cleanTitle, onEpisodeChange }) {
   const handleScrubberTouch = (e) => {
     if (!progressBarRef.current || !videoRef.current || !duration || !e.touches[0]) return;
     const rect = progressBarRef.current.getBoundingClientRect();
-    const touchX = e.touches[0].clientX - rect.left;
-    const percentage = Math.max(0, Math.min(1, touchX / rect.width));
+    const touch = e.touches[0];
+    const clickPos = isRotated ? touch.clientY - rect.top : touch.clientX - rect.left;
+    const totalSpan = isRotated ? rect.height : rect.width;
+    const percentage = Math.max(0, Math.min(1, clickPos / totalSpan));
     const newTime = percentage * duration;
     videoRef.current.currentTime = newTime;
     setCurrentTime(newTime);
@@ -315,7 +440,6 @@ export default function VideoPlayer({ movie, cleanTitle, onEpisodeChange }) {
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e) => {
-      // Don't intercept if user is typing in an input
       if (['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return;
 
       switch (e.key.toLowerCase()) {
@@ -358,6 +482,12 @@ export default function VideoPlayer({ movie, cleanTitle, onEpisodeChange }) {
           e.preventDefault();
           toggleMute();
           break;
+        case 'escape':
+          if (isPseudoLandscape) {
+            e.preventDefault();
+            exitPseudoLandscape();
+          }
+          break;
         default:
           break;
       }
@@ -365,35 +495,31 @@ export default function VideoPlayer({ movie, cleanTitle, onEpisodeChange }) {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [duration, isMuted, volume]);
+  }, [duration, isMuted, volume, isPseudoLandscape]);
 
   // Double-tap gesture handler for mobile & desktop
   const handleVideoTap = (e) => {
     const now = Date.now();
     const rect = e.currentTarget.getBoundingClientRect();
-    const clickX = (e.clientX || (e.touches && e.touches[0]?.clientX) || 0) - rect.left;
-    const width = rect.width;
+    const clientX = e.clientX || (e.touches && e.touches[0]?.clientX) || 0;
+    const clientY = e.clientY || (e.touches && e.touches[0]?.clientY) || 0;
+    const pos = isRotated ? clientY - rect.top : clientX - rect.left;
+    const span = isRotated ? rect.height : rect.width;
 
     if (now - lastTapRef.current.time < 320) {
-      // Double tap detected!
       if (tapTimeoutRef.current) clearTimeout(tapTimeoutRef.current);
 
-      if (clickX < width * 0.4) {
-        // Double tap left: Rewind 10s
+      if (pos < span * 0.4) {
         skipSeconds(-10);
-      } else if (clickX > width * 0.6) {
-        // Double tap right: Forward 10s
+      } else if (pos > span * 0.6) {
         skipSeconds(10);
       } else {
-        // Double tap center: Play/Pause
         togglePlay();
       }
       lastTapRef.current = { time: 0, x: 0 };
     } else {
-      // Single tap
-      lastTapRef.current = { time: now, x: clickX };
+      lastTapRef.current = { time: now, x: pos };
       tapTimeoutRef.current = setTimeout(() => {
-        // Toggle controls visibility on single click
         setShowControls((prev) => !prev);
         if (!showControls) startHideControlsTimer();
       }, 300);
@@ -408,7 +534,6 @@ export default function VideoPlayer({ movie, cleanTitle, onEpisodeChange }) {
       setDuration(videoRef.current.duration);
     }
 
-    // Update buffered progress
     if (videoRef.current.buffered.length > 0 && videoRef.current.duration) {
       const bufferedEnd = videoRef.current.buffered.end(videoRef.current.buffered.length - 1);
       setBufferedPercent((bufferedEnd / videoRef.current.duration) * 100);
@@ -434,7 +559,6 @@ export default function VideoPlayer({ movie, cleanTitle, onEpisodeChange }) {
     console.warn('HTML5 Video Error:', e);
     setIsBuffering(false);
     setIsLoading(false);
-    // If stream fails, fallback to embed
     if (embedUrl && playerMode === 'direct') {
       setPlayerMode('embed');
     } else {
@@ -445,14 +569,47 @@ export default function VideoPlayer({ movie, cleanTitle, onEpisodeChange }) {
 
   const playedPercentage = duration > 0 ? (currentTime / duration) * 100 : 0;
 
+  // Compute container styling for simulated landscape fullscreen
+  const pseudoFullscreenStyles = isPseudoLandscape
+    ? isRotated
+      ? {
+          position: 'fixed',
+          top: '50%',
+          left: '50%',
+          width: '100vh',
+          height: '100vw',
+          transform: 'translate(-50%, -50%) rotate(90deg)',
+          zIndex: 99999,
+          borderRadius: 0,
+          border: 'none',
+          maxWidth: 'none',
+          maxHeight: 'none',
+        }
+      : {
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          zIndex: 99999,
+          borderRadius: 0,
+          border: 'none',
+          maxWidth: 'none',
+          maxHeight: 'none',
+        }
+    : {};
+
   return (
     <div
       ref={containerRef}
+      style={pseudoFullscreenStyles}
       onMouseMove={handleUserActivity}
       onTouchStart={handleUserActivity}
-      className={`relative w-full aspect-video bg-black overflow-hidden rounded-2xl sm:rounded-3xl border border-[#242436] shadow-2xl select-none group flex items-center justify-center ${
-        !showControls && isPlaying ? 'cursor-none' : 'cursor-default'
-      }`}
+      className={`relative w-full aspect-video max-h-[min(76vh,780px)] bg-black overflow-hidden shadow-2xl select-none group flex items-center justify-center transition-all duration-300 ${
+        isPseudoLandscape
+          ? ''
+          : 'rounded-2xl sm:rounded-3xl border border-[#242436]'
+      } ${!showControls && isPlaying ? 'cursor-none' : 'cursor-default'}`}
     >
       {/* 1. Direct HTML5 Video Player */}
       {playerMode === 'direct' && streamUrl && (
@@ -501,7 +658,7 @@ export default function VideoPlayer({ movie, cleanTitle, onEpisodeChange }) {
 
       {/* Loading Screen Indicator */}
       {isLoading && (
-        <div className="absolute inset-0 bg-black/80 backdrop-blur-sm z-30 flex flex-col items-center justify-center gap-3 animate-in fade-in">
+        <div className="absolute inset-0 bg-black/85 backdrop-blur-sm z-30 flex flex-col items-center justify-center gap-3 animate-in fade-in">
           <div className="relative w-14 h-14">
             <div className="w-14 h-14 rounded-full border-4 border-white/10 border-t-[#E50914] animate-spin" />
             <Play className="w-5 h-5 text-white absolute inset-0 m-auto" />
@@ -591,7 +748,7 @@ export default function VideoPlayer({ movie, cleanTitle, onEpisodeChange }) {
         </div>
       )}
 
-      {/* Custom HTML5 Player Controls Overlay (Only for HTML5 Direct Mode) */}
+      {/* Custom Controls Overlay */}
       {playerMode === 'direct' && !hasError && (
         <div
           className={`absolute inset-0 z-20 flex flex-col justify-between transition-opacity duration-300 ${
@@ -599,10 +756,27 @@ export default function VideoPlayer({ movie, cleanTitle, onEpisodeChange }) {
               ? 'opacity-100 pointer-events-auto'
               : 'opacity-0 pointer-events-none'
           }`}
+          style={{
+            paddingLeft: isPseudoLandscape ? 'max(16px, env(safe-area-inset-left, 16px))' : undefined,
+            paddingRight: isPseudoLandscape ? 'max(16px, env(safe-area-inset-right, 16px))' : undefined,
+            paddingBottom: isPseudoLandscape ? 'max(12px, env(safe-area-inset-bottom, 12px))' : undefined,
+          }}
         >
-          {/* Top Bar: Title & Mode Switch */}
-          <div className="w-full bg-gradient-to-b from-black/80 via-black/40 to-transparent p-3 sm:p-5 flex items-center justify-between">
-            <div className="flex items-center gap-2 min-w-0 pr-4">
+          {/* Top Bar: Back button (in Fullscreen), Title & Quick Switches */}
+          <div className="w-full bg-gradient-to-b from-black/85 via-black/45 to-transparent p-3 sm:p-5 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5 min-w-0 pr-2">
+              {/* Back / Exit Fullscreen Button */}
+              {(isPseudoLandscape || isFullscreen) && (
+                <button
+                  onClick={toggleFullscreen}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/20 text-xs font-medium backdrop-blur transition-all active:scale-95 shadow shrink-0"
+                  title="Keluar Layar Penuh"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  <span className="hidden sm:inline">Kembali</span>
+                </button>
+              )}
+
               <span className="bg-[#E50914] text-white text-[10px] font-bold px-2 py-0.5 rounded shrink-0 uppercase tracking-wider">
                 DUB INDO
               </span>
@@ -611,17 +785,31 @@ export default function VideoPlayer({ movie, cleanTitle, onEpisodeChange }) {
               </span>
             </div>
 
-            {/* Quick Engine Switcher Button */}
-            {embedUrl && (
-              <button
-                onClick={() => setPlayerMode('embed')}
-                className="px-2.5 py-1 rounded-lg bg-black/60 hover:bg-black/90 text-slate-300 hover:text-white border border-white/15 text-[11px] font-medium backdrop-blur transition-colors shrink-0 flex items-center gap-1.5"
-                title="Beralih ke Pemutar Web Iframe"
-              >
-                <Sliders className="w-3 h-3 text-[#00E5FF]" />
-                <span className="hidden sm:inline">Mode Web</span>
-              </button>
-            )}
+            <div className="flex items-center gap-2 shrink-0">
+              {/* Apple AVPlayer native fullscreen launcher for iOS */}
+              {videoRef.current && typeof videoRef.current.webkitEnterFullscreen === 'function' && (
+                <button
+                  onClick={openNativeIOSPlayer}
+                  className="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-slate-200 hover:text-white border border-white/15 text-[11px] font-medium backdrop-blur transition-colors flex items-center gap-1.5"
+                  title="Buka Pemutar Asli iOS (Apple AVPlayer)"
+                >
+                  <Tv className="w-3.5 h-3.5 text-[#00E5FF]" />
+                  <span className="hidden md:inline">Pemutar iOS</span>
+                </button>
+              )}
+
+              {/* Quick Web Embed Switcher */}
+              {embedUrl && (
+                <button
+                  onClick={() => setPlayerMode('embed')}
+                  className="px-2.5 py-1 rounded-lg bg-black/60 hover:bg-black/90 text-slate-300 hover:text-white border border-white/15 text-[11px] font-medium backdrop-blur transition-colors flex items-center gap-1.5"
+                  title="Beralih ke Pemutar Web Iframe"
+                >
+                  <Sliders className="w-3 h-3 text-[#00E5FF]" />
+                  <span className="hidden sm:inline">Mode Web</span>
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Center Play / Pause & ±10s Skip Buttons */}
@@ -629,7 +817,7 @@ export default function VideoPlayer({ movie, cleanTitle, onEpisodeChange }) {
             {/* -10s Button */}
             <button
               onClick={() => skipSeconds(-10)}
-              className="p-2.5 sm:p-3 rounded-full bg-black/60 hover:bg-black/80 backdrop-blur-md text-white border border-white/15 hover:border-white/40 transition-all transform active:scale-90 flex flex-col items-center justify-center group/skip shadow-lg"
+              className="p-2.5 sm:p-3.5 rounded-full bg-black/60 hover:bg-black/85 backdrop-blur-md text-white border border-white/15 hover:border-white/40 transition-all transform active:scale-90 flex flex-col items-center justify-center group/skip shadow-xl"
               title="Mundur 10 Detik (J atau Panah Kiri)"
             >
               <RotateCcw className="w-5 h-5 sm:w-6 sm:h-6 text-slate-200 group-hover/skip:text-white" />
@@ -639,7 +827,7 @@ export default function VideoPlayer({ movie, cleanTitle, onEpisodeChange }) {
             {/* Big Play / Pause Button */}
             <button
               onClick={togglePlay}
-              className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-[#E50914] hover:bg-red-700 text-white flex items-center justify-center transition-all transform active:scale-95 shadow-xl shadow-red-600/40 hover:scale-105"
+              className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-[#E50914] hover:bg-red-700 text-white flex items-center justify-center transition-all transform active:scale-95 shadow-2xl shadow-red-600/40 hover:scale-105"
               title={isPlaying ? 'Jeda (Spasi)' : 'Putar (Spasi)'}
             >
               {isPlaying ? (
@@ -652,7 +840,7 @@ export default function VideoPlayer({ movie, cleanTitle, onEpisodeChange }) {
             {/* +10s Button */}
             <button
               onClick={() => skipSeconds(10)}
-              className="p-2.5 sm:p-3 rounded-full bg-black/60 hover:bg-black/80 backdrop-blur-md text-white border border-white/15 hover:border-white/40 transition-all transform active:scale-90 flex flex-col items-center justify-center group/skip shadow-lg"
+              className="p-2.5 sm:p-3.5 rounded-full bg-black/60 hover:bg-black/85 backdrop-blur-md text-white border border-white/15 hover:border-white/40 transition-all transform active:scale-90 flex flex-col items-center justify-center group/skip shadow-xl"
               title="Maju 10 Detik (L atau Panah Kanan)"
             >
               <RotateCw className="w-5 h-5 sm:w-6 sm:h-6 text-slate-200 group-hover/skip:text-white" />
@@ -661,7 +849,7 @@ export default function VideoPlayer({ movie, cleanTitle, onEpisodeChange }) {
           </div>
 
           {/* Bottom Control Bar (Two Dedicated Rows: Scrubber on Top, Buttons Below) */}
-          <div className="w-full bg-gradient-to-t from-black/95 via-black/75 to-transparent pt-6 pb-3 sm:pb-4 px-3 sm:px-6 flex flex-col gap-2">
+          <div className="w-full bg-gradient-to-t from-black/95 via-black/80 to-transparent pt-6 pb-3 sm:pb-4 px-3 sm:px-6 flex flex-col gap-2">
             {/* ROW 1: Dedicated Scrubber / Progress Bar (Zero Overlap with any buttons) */}
             <div
               ref={progressBarRef}
@@ -758,7 +946,7 @@ export default function VideoPlayer({ movie, cleanTitle, onEpisodeChange }) {
                     )}
                   </button>
 
-                  {/* Volume Slider (Expands smoothly) */}
+                  {/* Volume Slider */}
                   <div
                     className={`flex items-center overflow-hidden transition-all duration-200 ${
                       showVolumeSlider ? 'w-16 sm:w-20 opacity-100' : 'w-0 sm:w-16 opacity-0 sm:opacity-90'
@@ -807,10 +995,10 @@ export default function VideoPlayer({ movie, cleanTitle, onEpisodeChange }) {
                 <button
                   onClick={toggleFullscreen}
                   className="p-1.5 sm:p-2 rounded-lg text-slate-200 hover:text-white hover:bg-white/10 transition-colors"
-                  title={isFullscreen ? 'Keluar Layar Penuh (F)' : 'Layar Penuh (F)'}
+                  title={isPseudoLandscape || isFullscreen ? 'Keluar Layar Penuh (F)' : 'Layar Penuh (F)'}
                 >
-                  {isFullscreen ? (
-                    <Minimize className="w-4 h-4 sm:w-5 sm:h-5" />
+                  {isPseudoLandscape || isFullscreen ? (
+                    <Minimize className="w-4 h-4 sm:w-5 sm:h-5 text-[#00E5FF]" />
                   ) : (
                     <Maximize className="w-4 h-4 sm:w-5 sm:h-5" />
                   )}
@@ -821,7 +1009,7 @@ export default function VideoPlayer({ movie, cleanTitle, onEpisodeChange }) {
         </div>
       )}
 
-      {/* Secondary Web Player Mode Switch Button (When in Iframe Mode) */}
+      {/* Secondary Web Player Mode Controls (When in Iframe Mode) */}
       {playerMode === 'embed' && (
         <div className="absolute top-3 right-3 z-30 flex items-center gap-2">
           {streamUrl && (
@@ -831,15 +1019,15 @@ export default function VideoPlayer({ movie, cleanTitle, onEpisodeChange }) {
               title="Beralih ke Pemutar Langsung Tanpa Iklan"
             >
               <Play className="w-3.5 h-3.5 fill-current" />
-              <span>Ganti ke Mode HTML5 Bebas Iklan</span>
+              <span>Mode Bebas Iklan</span>
             </button>
           )}
           <button
             onClick={toggleFullscreen}
             className="p-2 rounded-xl bg-black/75 backdrop-blur text-white border border-white/20 hover:bg-black/90 shadow"
-            title="Layar Penuh"
+            title={isPseudoLandscape || isFullscreen ? 'Keluar Layar Penuh' : 'Layar Penuh'}
           >
-            {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
+            {isPseudoLandscape || isFullscreen ? <Minimize className="w-4 h-4 text-[#00E5FF]" /> : <Maximize className="w-4 h-4 text-white" />}
           </button>
         </div>
       )}

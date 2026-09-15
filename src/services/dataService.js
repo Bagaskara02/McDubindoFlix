@@ -347,6 +347,29 @@ export async function getRelatedMovies(currentMovie, limit = 12) {
 
 let streamSourcesCache = null;
 
+function isValidVideoStream(url) {
+  if (!url || typeof url !== 'string') return false;
+  const lower = url.toLowerCase();
+  if (
+    lower.includes('.png') ||
+    lower.includes('.jpg') ||
+    lower.includes('.jpeg') ||
+    lower.includes('.gif') ||
+    lower.includes('.svg') ||
+    lower.includes('.webp') ||
+    lower.includes('logo-light')
+  ) {
+    return false;
+  }
+  return (
+    lower.includes('.mp4') ||
+    lower.includes('driveduo') ||
+    lower.includes('uvideoweb') ||
+    lower.includes('.m3u8') ||
+    lower.includes('stream.dubbindo.site')
+  );
+}
+
 /**
  * Get direct video stream source (MP4 / driveduo stream)
  */
@@ -373,11 +396,38 @@ export async function getStreamSource(movie) {
       if (embedCode) val = streamSourcesCache[embedCode];
     }
     if (val) {
-      return typeof val === 'string' ? { url: val } : val;
+      const u = typeof val === 'string' ? val : val.url;
+      if (isValidVideoStream(u)) {
+        return { url: u };
+      }
     }
   }
 
-  // 2. Try serverless endpoint /api/stream if not in cache
+  // 2. Fallback: Search all_content for alternative working upload of the same movie
+  try {
+    const all = await loadJson('all_content.json');
+    const cleanCurrent = getCleanSeriesTitle(movie).toLowerCase().trim();
+    if (cleanCurrent.length >= 3 && streamSourcesCache) {
+      const alt = all.find((m) => {
+        if (String(m.id) === String(movie.id)) return false;
+        const cm = getCleanSeriesTitle(m).toLowerCase().trim();
+        if (cm !== cleanCurrent && !cm.includes(cleanCurrent) && !cleanCurrent.includes(cm)) {
+          return false;
+        }
+        const altSrc = streamSourcesCache[String(m.id)] || (m.slug && streamSourcesCache[m.slug]);
+        const altUrl = typeof altSrc === 'string' ? altSrc : altSrc?.url;
+        return isValidVideoStream(altUrl);
+      });
+
+      if (alt) {
+        const altSrc = streamSourcesCache[String(alt.id)] || streamSourcesCache[alt.slug];
+        const altUrl = typeof altSrc === 'string' ? altSrc : altSrc?.url;
+        return { url: altUrl, isAlternative: true, altTitle: alt.title };
+      }
+    }
+  } catch (_) {}
+
+  // 3. Try serverless endpoint /api/stream if not in cache
   try {
     const embedCode = getEmbedCode(movie);
     const params = new URLSearchParams();
@@ -388,7 +438,7 @@ export async function getStreamSource(movie) {
     const apiRes = await fetch(`/api/stream?${params.toString()}`);
     if (apiRes.ok) {
       const data = await apiRes.json();
-      if (data && data.url) {
+      if (data && data.url && isValidVideoStream(data.url)) {
         return data;
       }
     }
