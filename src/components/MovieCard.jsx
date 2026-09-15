@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Play, Bookmark, Clock, Eye, Check } from 'lucide-react';
 import { getCleanSeriesTitle, isSeries, getSeriesEpisodeCount } from '../services/dataService';
+import { sanitizeUrl } from '../utils/security';
 
 export default function MovieCard({
   movie,
@@ -16,9 +17,11 @@ export default function MovieCard({
   const epCount = isSeriesItem ? getSeriesEpisodeCount(movie) : 0;
 
   // Fallback poster if image fails
-  const posterUrl = imgError || !movie.thumbnail
+  const rawPoster = imgError || !movie.thumbnail
     ? (movie.gif_preview || 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=500&auto=format&fit=crop&q=60')
     : movie.thumbnail;
+  const posterUrl = sanitizeUrl(rawPoster, 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=500&auto=format&fit=crop&q=60');
+
 
   return (
     <div

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Play, Plus, Check, Star, Clock, Eye, Sparkles } from 'lucide-react';
 import { getCleanSeriesTitle, isSeries, getSeriesEpisodeCount } from '../services/dataService';
+import { sanitizeUrl } from '../utils/security';
 
 export default function HeroBanner({
   featuredMovies = [],
@@ -31,8 +32,8 @@ export default function HeroBanner({
       {/* Backdrop Image with Dark Overlay */}
       <div className="absolute inset-0">
         <img
-          src={movie.thumbnail || movie.gif_preview}
-          alt={movie.title}
+          src={sanitizeUrl(movie.thumbnail || movie.gif_preview, '')}
+          alt={cleanTitle}
           className="w-full h-full object-cover object-center scale-105 transition-transform duration-1000 blur-[1px]"
         />
         {/* Cinematic Vignette Gradients */}

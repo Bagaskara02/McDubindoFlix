@@ -26,6 +26,7 @@ import {
   isSeries,
   getSeriesEpisodeCount,
 } from '../services/dataService';
+import { sanitizeId, sanitizeUrl } from '../utils/security';
 
 export default function VideoPlayerModal({
   movie,
@@ -133,8 +134,12 @@ export default function VideoPlayerModal({
     }
   };
 
-  // Stream URLs: Dubbindo embed url
-  const embedUrl = `https://www.dubbindo.site/embed/${currentMovie.id}`;
+  // Stream URLs: Dubbindo embed url with ID sanitization
+  const safeId = sanitizeId(currentMovie.id);
+  const embedUrl = safeId ? `https://www.dubbindo.site/embed/${safeId}` : '';
+  const safeExternalUrl = sanitizeUrl(
+    currentMovie.url || (currentMovie.slug ? `https://www.dubbindo.site/watch/${encodeURIComponent(currentMovie.slug)}` : '')
+  );
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 md:p-6 bg-black/90 backdrop-blur-xl animate-in fade-in duration-200">
@@ -177,7 +182,9 @@ export default function VideoPlayerModal({
           <iframe
             key={currentMovie.id}
             src={embedUrl}
-            title={currentMovie.title}
+            title={cleanTitle}
+            referrerPolicy="strict-origin-when-cross-origin"
+            loading="lazy"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
             allowFullScreen
             className={`w-full h-full border-0 ${
@@ -256,7 +263,7 @@ export default function VideoPlayerModal({
               </button>
 
               <a
-                href={currentMovie.url || `https://www.dubbindo.site/watch/${currentMovie.slug}`}
+                href={safeExternalUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-semibold bg-white/5 text-slate-300 hover:text-white hover:bg-white/10 border border-white/10 transition-colors"
