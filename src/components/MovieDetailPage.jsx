@@ -7,9 +7,6 @@ import {
   ExternalLink,
   Sparkles,
   ListVideo,
-  Monitor,
-  Maximize,
-  Minimize,
   Clock,
   Eye,
   Calendar,
@@ -20,11 +17,11 @@ import {
   getEpisodesForMovie,
   getCleanSeriesTitle,
   isSeries,
-  getEmbedCode,
   getRelatedMovies,
 } from '../services/dataService';
-import { sanitizeId, sanitizeUrl } from '../utils/security';
+import { sanitizeUrl } from '../utils/security';
 import MovieCard from './MovieCard';
+import VideoPlayer from './VideoPlayer';
 
 export default function MovieDetailPage({
   movie,
@@ -37,8 +34,6 @@ export default function MovieDetailPage({
   const [episodes, setEpisodes] = useState([]);
   const [relatedMovies, setRelatedMovies] = useState([]);
   const [selectedQuality, setSelectedQuality] = useState('1080p');
-  const [fitMode, setFitMode] = useState('contain');
-  const [isFullscreen, setIsFullscreen] = useState(false);
   const [shareSuccess, setShareSuccess] = useState(false);
 
   const containerRef = useRef(null);
@@ -61,10 +56,6 @@ export default function MovieDetailPage({
   const cleanTitle = getCleanSeriesTitle(currentMovie);
   const isSeriesItem = isSeries(currentMovie);
 
-  // Extract correct embed code
-  const embedCode = getEmbedCode(currentMovie);
-  const safeEmbedCode = sanitizeId(embedCode);
-  const embedUrl = safeEmbedCode ? `https://www.dubbindo.site/embed/${safeEmbedCode}` : '';
   const safeExternalUrl = sanitizeUrl(
     currentMovie.url || (currentMovie.slug ? `https://www.dubbindo.site/watch/${encodeURIComponent(currentMovie.slug)}` : '')
   );
@@ -74,31 +65,6 @@ export default function MovieDetailPage({
     setCurrentMovie(ep.movie);
     // Smoothly scroll player into view
     playerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  };
-
-  // Toggle fullscreen
-  const toggleFullscreen = () => {
-    if (!playerRef.current) return;
-    if (!document.fullscreenElement) {
-      playerRef.current.requestFullscreen?.().catch(() => {});
-      setIsFullscreen(true);
-    } else {
-      document.exitFullscreen?.().catch(() => {});
-      setIsFullscreen(false);
-    }
-  };
-
-  // Cycle fit mode
-  const cycleFitMode = () => {
-    if (fitMode === 'contain') setFitMode('cover');
-    else if (fitMode === 'cover') setFitMode('fill');
-    else setFitMode('contain');
-  };
-
-  const getFitModeLabel = () => {
-    if (fitMode === 'contain') return 'Pas Layar (Fit)';
-    if (fitMode === 'cover') return 'Penuh (Zoom)';
-    return 'Regang (Stretch)';
   };
 
   // Web Share API
@@ -192,55 +158,12 @@ export default function MovieDetailPage({
       {/* Main Detail Page Body */}
       <main className="flex-1 w-full max-w-[1440px] mx-auto px-3 sm:px-5 lg:px-8 py-4 sm:py-6 space-y-6 sm:space-y-8">
         {/* Cinema Video Player Container */}
-        <section
-          ref={playerRef}
-          className="relative w-full aspect-video max-h-[78vh] mx-auto bg-black rounded-2xl sm:rounded-3xl overflow-hidden border border-[#242436] shadow-2xl group flex items-center justify-center"
-        >
-          {embedUrl ? (
-            <iframe
-              key={embedUrl}
-              src={embedUrl}
-              title={cleanTitle}
-              referrerPolicy="strict-origin-when-cross-origin"
-              loading="eager"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
-              allowFullScreen
-              className={`w-full h-full border-0 ${
-                fitMode === 'cover'
-                  ? 'object-cover scale-105'
-                  : fitMode === 'fill'
-                  ? 'object-fill'
-                  : 'object-contain'
-              }`}
-            />
-          ) : (
-            <div className="text-center p-8 space-y-3">
-              <Film className="w-12 h-12 text-slate-500 mx-auto" />
-              <p className="text-sm font-medium text-slate-400">
-                Memuat pemutar video...
-              </p>
-            </div>
-          )}
-
-          {/* Player Quick Controls (Bottom Right) */}
-          <div className="absolute bottom-3 right-3 flex items-center gap-2 opacity-90 group-hover:opacity-100 transition-opacity pointer-events-auto">
-            <button
-              onClick={cycleFitMode}
-              className="px-2.5 py-1.5 rounded-lg bg-black/75 backdrop-blur-md text-xs font-medium text-slate-200 border border-white/20 hover:text-white hover:bg-black/90 flex items-center gap-1.5 shadow"
-              title="Ganti Ukuran Layar Video"
-            >
-              <Monitor className="w-3.5 h-3.5 text-[#00E5FF]" />
-              <span className="hidden sm:inline">{getFitModeLabel()}</span>
-            </button>
-
-            <button
-              onClick={toggleFullscreen}
-              className="p-1.5 rounded-lg bg-black/75 backdrop-blur-md text-slate-200 border border-white/20 hover:text-white hover:bg-black/90 shadow"
-              title="Layar Penuh (F)"
-            >
-              {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
-            </button>
-          </div>
+        <section ref={playerRef} className="w-full max-h-[82vh] mx-auto">
+          <VideoPlayer
+            movie={currentMovie}
+            cleanTitle={cleanTitle}
+            onEpisodeChange={handleSelectEpisode}
+          />
         </section>
 
         {/* Quality & Series Episode Playlist Section */}

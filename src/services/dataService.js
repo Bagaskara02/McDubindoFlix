@@ -345,3 +345,56 @@ export async function getRelatedMovies(currentMovie, limit = 12) {
   return filtered.slice(0, limit);
 }
 
+let streamSourcesCache = null;
+
+/**
+ * Get direct video stream source (MP4 / driveduo stream)
+ */
+export async function getStreamSource(movie) {
+  if (!movie) return null;
+
+  // 1. Try loading cached catalog mapping
+  if (!streamSourcesCache) {
+    try {
+      const res = await fetch('/data/stream_sources.json');
+      if (res.ok) {
+        streamSourcesCache = await res.json();
+      }
+    } catch (e) {
+      console.warn('Could not load stream_sources.json:', e);
+    }
+  }
+
+  if (streamSourcesCache) {
+    const idKey = String(movie.id);
+    let val = streamSourcesCache[idKey] || (movie.slug && streamSourcesCache[movie.slug]);
+    if (!val) {
+      const embedCode = getEmbedCode(movie);
+      if (embedCode) val = streamSourcesCache[embedCode];
+    }
+    if (val) {
+      return typeof val === 'string' ? { url: val } : val;
+    }
+  }
+
+  // 2. Try serverless endpoint /api/stream if not in cache
+  try {
+    const embedCode = getEmbedCode(movie);
+    const params = new URLSearchParams();
+    if (embedCode) params.set('code', embedCode);
+    if (movie.slug) params.set('slug', movie.slug);
+    if (movie.url) params.set('url', movie.url);
+
+    const apiRes = await fetch(`/api/stream?${params.toString()}`);
+    if (apiRes.ok) {
+      const data = await apiRes.json();
+      if (data && data.url) {
+        return data;
+      }
+    }
+  } catch (_) {}
+
+  return null;
+}
+
+
