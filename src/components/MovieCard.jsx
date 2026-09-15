@@ -93,7 +93,7 @@ export default function MovieCard({
       <div className="p-3.5 flex flex-col flex-1 justify-between gap-2">
         <div>
           <h3
-            className="text-xs sm:text-sm font-bold text-white line-clamp-2 leading-snug group-hover:text-[#FF3844] transition-colors"
+            className="text-xs sm:text-sm font-normal sm:font-medium text-slate-100 line-clamp-2 leading-snug group-hover:text-red-400 transition-colors font-sans"
             title={cleanTitle}
           >
             {cleanTitle}

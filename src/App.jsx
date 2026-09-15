@@ -3,13 +3,14 @@ import Navbar from './components/Navbar';
 import HeroBanner from './components/HeroBanner';
 import CategoryNav from './components/CategoryNav';
 import MovieCard from './components/MovieCard';
-import VideoPlayerModal from './components/VideoPlayerModal';
+import MovieDetailPage from './components/MovieDetailPage';
 import WatchlistModal from './components/WatchlistModal';
 import PwaInstallPrompt from './components/PwaInstallPrompt';
 import { getCategoryMovies, searchMovies, initSeriesIndex } from './services/dataService';
-import { Film, Sparkles, Tv, AlertCircle, Heart } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 
 export default function App() {
+  const [currentView, setCurrentView] = useState('home'); // 'home' or 'player'
   const [activeCategory, setActiveCategory] = useState('popular');
   const [searchQuery, setSearchQuery] = useState('');
   const [movies, setMovies] = useState([]);
@@ -45,7 +46,6 @@ export default function App() {
       setIsLoading(true);
       await initSeriesIndex();
 
-      // Load popular and box office for hero banner
       const [pop, box] = await Promise.all([
         getCategoryMovies('popular', 60),
         getCategoryMovies('boxoffice', 20),
@@ -56,6 +56,18 @@ export default function App() {
       setIsLoading(false);
     }
     init();
+  }, []);
+
+  // Handle browser Back button and swipe gestures
+  useEffect(() => {
+    const handlePopState = () => {
+      if (!window.location.hash || !window.location.hash.startsWith('#watch/')) {
+        setCurrentView('home');
+        setActiveMovie(null);
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
   // Category change handler
@@ -72,7 +84,6 @@ export default function App() {
   // Search input handler with debounce
   useEffect(() => {
     if (!searchQuery.trim()) {
-      // Revert back to active category
       getCategoryMovies(activeCategory, 100).then(setMovies);
       return;
     }
@@ -86,6 +97,27 @@ export default function App() {
 
     return () => clearTimeout(timer);
   }, [searchQuery, activeCategory]);
+
+  // Navigate to Dedicated Detail / Player Page
+  const handleOpenMovie = useCallback((movie) => {
+    setActiveMovie(movie);
+    setCurrentView('player');
+    try {
+      const hash = movie.slug || movie.id;
+      window.history.pushState({ view: 'player', id: movie.id }, '', `#watch/${hash}`);
+    } catch (_) {}
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
+
+  // Back to Home
+  const handleBackToHome = useCallback(() => {
+    setCurrentView('home');
+    setActiveMovie(null);
+    try {
+      window.history.pushState(null, '', window.location.pathname);
+    } catch (_) {}
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
 
   // Watchlist toggle handler
   const handleToggleWatchlist = useCallback((movie) => {
@@ -111,7 +143,7 @@ export default function App() {
     }
   }, []);
 
-  // Get current section heading label
+  // Section title (De-bolded font-medium)
   const getSectionTitle = () => {
     if (searchQuery.trim()) {
       return `Hasil Pencarian "${searchQuery}" (${movies.length})`;
@@ -134,6 +166,37 @@ export default function App() {
     }
   };
 
+  // IF CURRENT VIEW IS DEDICATED PLAYER PAGE: Render Full Page Player
+  if (currentView === 'player' && activeMovie) {
+    return (
+      <>
+        <MovieDetailPage
+          movie={activeMovie}
+          onBack={handleBackToHome}
+          watchlist={watchlist}
+          onToggleWatchlist={handleToggleWatchlist}
+          onSelectMovie={handleOpenMovie}
+        />
+        <WatchlistModal
+          isOpen={isWatchlistOpen}
+          onClose={() => setIsWatchlistOpen(false)}
+          watchlist={watchlist}
+          onPlayMovie={(movie) => {
+            setIsWatchlistOpen(false);
+            handleOpenMovie(movie);
+          }}
+          onRemoveFromWatchlist={handleRemoveFromWatchlist}
+          onClearWatchlist={handleClearWatchlist}
+        />
+        <PwaInstallPrompt
+          isOpen={isPwaGuideOpen}
+          onClose={() => setIsPwaGuideOpen(false)}
+        />
+      </>
+    );
+  }
+
+  // DEFAULT VIEW: Catalog / Home Screen
   return (
     <div className="min-h-screen bg-[#0C0C12] text-slate-100 flex flex-col selection:bg-[#E50914] selection:text-white font-sans">
       {/* Top Navbar */}
@@ -153,7 +216,7 @@ export default function App() {
         {!searchQuery.trim() && featuredMovies.length > 0 && (
           <HeroBanner
             featuredMovies={featuredMovies}
-            onPlayMovie={setActiveMovie}
+            onPlayMovie={handleOpenMovie}
             watchlist={watchlist}
             onToggleWatchlist={handleToggleWatchlist}
           />
@@ -170,17 +233,17 @@ export default function App() {
         )}
 
         {/* Catalog Section */}
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6 sm:mt-8">
+        <section className="w-full max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 mt-6 sm:mt-8">
           {/* Section Header */}
-          <div className="flex items-center justify-between mb-4 sm:mb-6">
+          <div className="flex items-center justify-between mb-4 sm:mb-5">
             <div className="flex items-center gap-2.5">
-              <div className="w-2 h-6 bg-[#E50914] rounded-full" />
-              <h2 className="text-lg sm:text-2xl font-black text-white tracking-tight">
+              <div className="w-1.5 h-5 bg-[#E50914] rounded-full" />
+              <h2 className="text-base sm:text-lg md:text-xl font-medium text-slate-100 font-sans tracking-normal">
                 {getSectionTitle()}
               </h2>
             </div>
             {!isLoading && (
-              <span className="text-xs font-semibold text-slate-400">
+              <span className="text-xs font-medium text-slate-400">
                 {movies.length} Judul
               </span>
             )}
@@ -200,16 +263,16 @@ export default function App() {
             /* Empty State */
             <div className="py-20 text-center space-y-3 bg-[#13131F] rounded-3xl border border-[#252538] p-8 max-w-lg mx-auto">
               <AlertCircle className="w-12 h-12 text-[#FF4550] mx-auto" />
-              <h3 className="text-base font-bold text-white">
+              <h3 className="text-base font-medium text-white">
                 Tidak ada film atau serial ditemukan
               </h3>
-              <p className="text-xs sm:text-sm text-slate-400">
+              <p className="text-xs sm:text-sm text-slate-400 font-normal">
                 Coba gunakan kata kunci lain seperti "Spider-Man", "Kung Fu Panda", atau "Avengers".
               </p>
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery('')}
-                  className="px-5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-all"
+                  className="px-5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-medium transition-all"
                 >
                   Reset Pencarian
                 </button>
@@ -224,7 +287,7 @@ export default function App() {
                   <MovieCard
                     key={movie.id}
                     movie={movie}
-                    onPlayMovie={setActiveMovie}
+                    onPlayMovie={handleOpenMovie}
                     isSaved={isSaved}
                     onToggleWatchlist={handleToggleWatchlist}
                   />
@@ -236,19 +299,19 @@ export default function App() {
       </main>
 
       {/* Footer */}
-      <footer className="w-full bg-[#08080C] border-t border-white/5 py-10 px-4 sm:px-6 lg:px-8 text-center space-y-4">
+      <footer className="w-full bg-[#08080C] border-t border-white/5 py-8 px-4 sm:px-6 lg:px-8 text-center space-y-3">
         <div className="flex items-center justify-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-[#E50914] flex items-center justify-center text-white font-extrabold text-sm">
+          <div className="w-7 h-7 rounded-lg bg-[#E50914] flex items-center justify-center text-white font-bold text-sm">
             M
           </div>
-          <span className="font-extrabold text-base tracking-tight text-white">
+          <span className="font-bold text-base tracking-tight text-white">
             McDubindo<span className="text-[#E50914]">Flix</span>
           </span>
         </div>
         <p className="text-xs text-slate-400 max-w-md mx-auto">
           Nonton Film & Serial TV Dubbing Indonesia berkualitas Full HD secara gratis.
         </p>
-        <div className="flex flex-wrap items-center justify-center gap-4 text-xs text-slate-500 pt-2">
+        <div className="flex flex-wrap items-center justify-center gap-4 text-xs text-slate-500 pt-1">
           <span>© 2026 McDubindoFlix</span>
           <span>•</span>
           <button
@@ -260,16 +323,6 @@ export default function App() {
         </div>
       </footer>
 
-      {/* Video Player Modal */}
-      {activeMovie && (
-        <VideoPlayerModal
-          movie={activeMovie}
-          onClose={() => setActiveMovie(null)}
-          watchlist={watchlist}
-          onToggleWatchlist={handleToggleWatchlist}
-        />
-      )}
-
       {/* Watchlist Modal */}
       <WatchlistModal
         isOpen={isWatchlistOpen}
@@ -277,13 +330,13 @@ export default function App() {
         watchlist={watchlist}
         onPlayMovie={(movie) => {
           setIsWatchlistOpen(false);
-          setActiveMovie(movie);
+          handleOpenMovie(movie);
         }}
         onRemoveFromWatchlist={handleRemoveFromWatchlist}
         onClearWatchlist={handleClearWatchlist}
       />
 
-      {/* iPhone 14 PWA Install Modal Guide */}
+      {/* Apple / Android PWA Install Modal Guide */}
       <PwaInstallPrompt
         isOpen={isPwaGuideOpen}
         onClose={() => setIsPwaGuideOpen(false)}

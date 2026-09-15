@@ -24,27 +24,30 @@ export default function Navbar({
   ];
 
   return (
-    <header className="sticky top-0 z-40 w-full glass-nav transition-all">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16 sm:h-20 gap-4">
+    <header
+      className="sticky top-0 z-40 w-full glass-nav transition-all"
+      style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
+    >
+      <div className="w-full max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6">
+        <div className="flex items-center justify-between h-14 sm:h-16 md:h-18 gap-2 sm:gap-4">
           {/* Brand Logo */}
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-2.5 shrink-0">
             <button
               onClick={() => onCategorySelect('popular')}
               className="flex items-center gap-2 group text-left focus:outline-none"
             >
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-[#E50914] to-[#FF4550] flex items-center justify-center font-extrabold text-white shadow-lg shadow-[#E50914]/30 group-hover:scale-105 transition-transform">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#E50914] to-[#FF4550] flex items-center justify-center font-bold text-white shadow-md shadow-[#E50914]/30 group-hover:scale-105 transition-transform">
                 M
               </div>
               <div className="flex flex-col">
-                <span className="font-black text-xl tracking-tight text-white group-hover:text-red-400 transition-colors flex items-center gap-1.5">
+                <span className="font-bold text-lg sm:text-xl tracking-tight text-white group-hover:text-red-400 transition-colors flex items-center gap-1.5">
                   McDubindo<span className="text-[#E50914]">Flix</span>
                 </span>
                 <div className="flex items-center gap-1.5">
                   <span className="text-[10px] font-bold tracking-widest uppercase bg-[#E50914]/20 text-[#FF4550] px-1.5 py-0.5 rounded border border-[#E50914]/30">
                     DUB INDO
                   </span>
-                  <span className="text-[10px] font-semibold text-slate-400 hidden sm:inline">
+                  <span className="text-[10px] font-medium text-slate-400 hidden sm:inline">
                     HD GRATIS
                   </span>
                 </div>
@@ -56,13 +59,13 @@ export default function Navbar({
           <nav className="hidden md:flex items-center gap-1 shrink-0">
             {navItems.map((item, idx) => {
               const isActive = activeCategory === item.id && !searchQuery;
-              const isSecondary = idx >= 4; // Disney+, Netflix, Box Office visible on xl
+              const isSecondary = idx >= 4; // Disney+, Netflix, Box Office visible on 2xl
               return (
                 <button
                   key={item.id}
                   onClick={() => onCategorySelect(item.id)}
-                  className={`px-3 py-1.5 rounded-xl text-xs xl:text-sm font-semibold whitespace-nowrap transition-all ${
-                    isSecondary ? 'hidden xl:inline-block' : 'inline-block'
+                  className={`px-3 py-1.5 rounded-xl text-xs xl:text-sm font-medium whitespace-nowrap transition-all ${
+                    isSecondary ? 'hidden 2xl:inline-block' : 'inline-block'
                   } ${
                     isActive
                       ? 'bg-[#E50914] text-white shadow-md shadow-[#E50914]/25'
@@ -76,7 +79,7 @@ export default function Navbar({
           </nav>
 
           {/* Action Bar (Search, Watchlist, Apple/Android PWA) */}
-          <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             {/* Search Bar Input (Desktop) */}
             <div className="hidden sm:flex relative items-center shrink-0">
               <input
@@ -84,7 +87,7 @@ export default function Navbar({
                 placeholder="Cari film atau serial..."
                 value={searchQuery}
                 onChange={(e) => onSearchChange(e.target.value)}
-                className="w-32 lg:w-44 xl:w-60 pl-8 pr-7 py-1.5 text-xs lg:text-sm bg-white/5 border border-white/10 rounded-full text-white placeholder:text-slate-400 focus:outline-none focus:border-[#E50914] focus:ring-1 focus:ring-[#E50914] focus:w-48 lg:focus:w-56 xl:focus:w-72 transition-all"
+                className="w-28 lg:w-36 xl:w-48 pl-8 pr-7 py-1.5 text-xs lg:text-sm bg-white/5 border border-white/10 rounded-full text-white placeholder:text-slate-400 focus:outline-none focus:border-[#E50914] focus:ring-1 focus:ring-[#E50914] focus:w-40 lg:focus:w-48 xl:focus:w-56 transition-all"
               />
               <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 pointer-events-none" />
               {searchQuery && (
@@ -113,7 +116,7 @@ export default function Navbar({
               title="Daftar Tonton"
             >
               <Bookmark className="w-4 h-4 text-[#FFD700]" />
-              <span className="hidden xl:inline text-xs font-semibold">Watchlist</span>
+              <span className="hidden xl:inline text-xs font-medium">Watchlist</span>
               {watchlistCount > 0 && (
                 <span className="px-1.5 py-0.2 text-[10px] font-bold bg-[#E50914] text-white rounded-full min-w-4 text-center shadow">
                   {watchlistCount}
@@ -124,11 +127,11 @@ export default function Navbar({
             {/* PWA install guide trigger */}
             <button
               onClick={onOpenPwaGuide}
-              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-cyan-500/10 text-[#00E5FF] border border-[#00E5FF]/30 hover:bg-cyan-500/20 transition-all whitespace-nowrap shrink-0"
+              className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium bg-cyan-500/10 text-[#00E5FF] border border-[#00E5FF]/30 hover:bg-cyan-500/20 transition-all whitespace-nowrap shrink-0"
               title="Pasang di Layar Utama (Apple / Android)"
             >
               <Smartphone className="w-3.5 h-3.5 shrink-0" />
-              <span>Pasang di Layar</span>
+              <span>Pasang App</span>
             </button>
 
             {/* Mobile Hamburger Menu */}

@@ -1,16 +1,41 @@
-# React + Vite
+# McDubindoFlix 🍿
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+> **"Web Film Khusus Yang suka Film BerDub Indo ajah"**
 
-Currently, two official plugins are available:
+Web streaming film dan serial TV dubbing Indonesia yang ringan, cepet dibuka, dan gak pake ribet. Dibuat responsif buat segala perangkat mulai dari HP, tablet, sampai laptop & desktop.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+🌐 **Cobain Webnya Langsung di Sini:**  
+👉 **[https://mcdubindoflix.vercel.app/](https://mcdubindoflix.vercel.app/)**
 
-## React Compiler
+---
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### ✨ Fitur Unggulan
 
-## Expanding the Oxlint configuration
+- 🎙️ **100% Dubbing Indonesia**: Semua koleksi film bioskop, box office, Disney+, Netflix, dan animasi udah ber-dubbing bahasa Indonesia.
+- 📺 **Kumpulan Episode 1 Judul**: Gak perlu bingung nyari episode 1 per 1. Cukup buka judul seriesnya (misal *Marvel Ultimate Spider-Man*), seluruh episode langsung ngumpul di playlist bawah pemutar dan bisa langsung diklik ganti episode.
+- 📱 **Bisa Pasang di Layar Utama (PWA)**: Buat pengguna perangkat Apple (iPhone / iPad) & Android, bisa langsung *Tambahkan ke Layar Utama* via browser dan web ini bakal jalan fullscreen layaknya aplikasi bawaan tanpa bilah URL.
+- ⚡ **Super Ringan & Ngebut**: Menggunakan Vite + React + Tailwind CSS v4 terbaru. Loading sat-set dan hemat kuota.
+- 🎬 **Pilihan Kualitas Video**: Tersedia resolusi 1080p FHD, 720p HD, 480p SD, hingga 360p Hemat, plus mode layar (Fit, Cover/Zoom, Stretch).
+- 🔖 **Watchlist Lokal**: Simpan film atau series favorit langsung di browser tanpa perlu repot login.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+---
+
+### 💻 Menjalankan Secara Lokal
+
+```bash
+# Clone repository
+git clone https://github.com/Bagaskara02/McDubindoFlix.git
+
+# Masuk ke folder
+cd McDubindoFlix
+
+# Install dependensi
+npm install
+
+# Jalankan server lokal
+npm run dev
+```
+
+---
+
+Dibuat dengan ❤️ buat kamu yang lebih suka nonton sambil santai dengerin dubbing Indonesia!

@@ -309,3 +309,39 @@ export async function searchMovies(query) {
 
   return groupSeriesInList(matched);
 }
+
+/**
+ * Extract working embed code from movie slug or URL (the hash after the underscore)
+ */
+export function getEmbedCode(movie) {
+  if (!movie) return '';
+  if (movie.slug && typeof movie.slug === 'string') {
+    const parts = movie.slug.split('_');
+    if (parts.length > 1) {
+      const last = parts[parts.length - 1].trim();
+      if (last.length >= 6) return last;
+    }
+  }
+  if (movie.url && typeof movie.url === 'string') {
+    const cleanUrl = movie.url.replace('.html', '').split('?')[0];
+    const parts = cleanUrl.split('_');
+    if (parts.length > 1) {
+      const last = parts[parts.length - 1].trim();
+      if (last.length >= 6) return last;
+    }
+  }
+  return String(movie.id || '').trim();
+}
+
+/**
+ * Get related movies for the dedicated player screen
+ */
+export async function getRelatedMovies(currentMovie, limit = 12) {
+  if (!currentMovie) return [];
+  await initSeriesIndex();
+  const all = await loadJson('popular.json');
+  const grouped = groupSeriesInList(all);
+  const filtered = grouped.filter((m) => m.id !== currentMovie.id);
+  return filtered.slice(0, limit);
+}
+
