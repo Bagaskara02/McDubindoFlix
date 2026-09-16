@@ -35,6 +35,7 @@ export default function MovieDetailPage({
   const [relatedMovies, setRelatedMovies] = useState([]);
   const [selectedQuality, setSelectedQuality] = useState('1080p');
   const [shareSuccess, setShareSuccess] = useState(false);
+  const [isPlayerFullscreen, setIsPlayerFullscreen] = useState(false);
 
   const containerRef = useRef(null);
   const playerRef = useRef(null);
@@ -90,70 +91,72 @@ export default function MovieDetailPage({
       ref={containerRef}
       className="min-h-screen bg-[#0C0C12] text-slate-100 flex flex-col font-sans animate-in fade-in duration-300"
     >
-      {/* Top Sticky Bar with iPhone Safe-Area-Inset-Top */}
-      <div
-        className="sticky top-0 z-40 w-full glass-nav transition-all"
-        style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
-      >
-        <div className="w-full max-w-[1440px] mx-auto px-3 sm:px-5 lg:px-8">
-          <div className="flex items-center justify-between h-14 sm:h-16 gap-2 sm:gap-4">
-            {/* Back Button */}
-            <button
-              onClick={onBack}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-200 hover:text-white transition-all text-xs sm:text-sm font-medium border border-white/10"
-              title="Kembali ke Katalog"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span>Kembali</span>
-            </button>
-
-            {/* Middle Title (Truncated) */}
-            <div className="hidden sm:flex items-center gap-2 min-w-0 max-w-md">
-              <span className="bg-[#E50914] text-white text-[10px] font-bold px-2 py-0.5 rounded uppercase shrink-0">
-                DUB INDO
-              </span>
-              <span className="text-xs sm:text-sm font-medium text-slate-200 truncate" title={currentMovie.title}>
-                {cleanTitle}
-              </span>
-            </div>
-
-            {/* Action buttons */}
-            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+      {/* Top Sticky Bar with iPhone Safe-Area-Inset-Top (Hidden during Fullscreen) */}
+      {!isPlayerFullscreen && (
+        <div
+          className="sticky top-0 z-40 w-full glass-nav transition-all"
+          style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
+        >
+          <div className="w-full max-w-[1440px] mx-auto px-3 sm:px-5 lg:px-8">
+            <div className="flex items-center justify-between h-14 sm:h-16 gap-2 sm:gap-4">
+              {/* Back Button */}
               <button
-                onClick={() => onToggleWatchlist(currentMovie)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all border ${
-                  isSaved
-                    ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40'
-                    : 'bg-[#181826] text-slate-200 border-white/10 hover:bg-white/10'
-                }`}
+                onClick={onBack}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-200 hover:text-white transition-all text-xs sm:text-sm font-medium border border-white/10"
+                title="Kembali ke Katalog"
               >
-                {isSaved ? <Check className="w-3.5 h-3.5" /> : <Bookmark className="w-3.5 h-3.5" />}
-                <span className="hidden sm:inline">{isSaved ? 'Tersimpan' : 'Watchlist'}</span>
+                <ArrowLeft className="w-4 h-4" />
+                <span>Kembali</span>
               </button>
 
-              <button
-                onClick={handleShare}
-                className="p-2 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 transition-colors"
-                title="Bagikan Film"
-              >
-                <Share2 className="w-4 h-4" />
-              </button>
+              {/* Middle Title (Truncated) */}
+              <div className="hidden sm:flex items-center gap-2 min-w-0 max-w-md">
+                <span className="bg-[#E50914] text-white text-[10px] font-bold px-2 py-0.5 rounded uppercase shrink-0">
+                  DUB INDO
+                </span>
+                <span className="text-xs sm:text-sm font-medium text-slate-200 truncate" title={currentMovie.title}>
+                  {cleanTitle}
+                </span>
+              </div>
 
-              {safeExternalUrl && (
-                <a
-                  href={safeExternalUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hidden md:flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-medium bg-white/5 text-slate-300 hover:text-white hover:bg-white/10 border border-white/10 transition-colors"
+              {/* Action buttons */}
+              <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                <button
+                  onClick={() => onToggleWatchlist(currentMovie)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all border ${
+                    isSaved
+                      ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40'
+                      : 'bg-[#181826] text-slate-200 border-white/10 hover:bg-white/10'
+                  }`}
                 >
-                  <span>Dubbindo</span>
-                  <ExternalLink className="w-3 h-3 text-slate-400" />
-                </a>
-              )}
+                  {isSaved ? <Check className="w-3.5 h-3.5" /> : <Bookmark className="w-3.5 h-3.5" />}
+                  <span className="hidden sm:inline">{isSaved ? 'Tersimpan' : 'Watchlist'}</span>
+                </button>
+
+                <button
+                  onClick={handleShare}
+                  className="p-2 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 transition-colors"
+                  title="Bagikan Film"
+                >
+                  <Share2 className="w-4 h-4" />
+                </button>
+
+                {safeExternalUrl && (
+                  <a
+                    href={safeExternalUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hidden md:flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-medium bg-white/5 text-slate-300 hover:text-white hover:bg-white/10 border border-white/10 transition-colors"
+                  >
+                    <span>Dubbindo</span>
+                    <ExternalLink className="w-3 h-3 text-slate-400" />
+                  </a>
+                )}
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Main Detail Page Body */}
       <main className="flex-1 w-full max-w-[1440px] mx-auto px-3 sm:px-5 lg:px-8 py-4 sm:py-6 space-y-6 sm:space-y-8">
@@ -163,6 +166,7 @@ export default function MovieDetailPage({
             movie={currentMovie}
             cleanTitle={cleanTitle}
             onEpisodeChange={handleSelectEpisode}
+            onFullscreenChange={setIsPlayerFullscreen}
           />
         </section>
 
