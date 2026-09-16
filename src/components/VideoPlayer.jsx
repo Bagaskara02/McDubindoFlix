@@ -12,6 +12,7 @@ import {
   Monitor,
   AlertCircle,
   ExternalLink,
+  ArrowLeft,
 } from 'lucide-react';
 import { getStreamSource } from '../services/dataService';
 import { sanitizeUrl } from '../utils/security';
@@ -73,7 +74,12 @@ export default function VideoPlayer({ movie, cleanTitle, onEpisodeChange, onFull
   const [fitMode, setFitMode] = useState('contain'); // contain | cover | fill
   const [fitToast, setFitToast] = useState('');
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isPseudoLandscape, setIsPseudoLandscape] = useState(false);
   const [showControls, setShowControls] = useState(true);
+  const [viewportSize, setViewportSize] = useState(() => ({
+    width: typeof window !== 'undefined' ? window.innerWidth : 390,
+    height: typeof window !== 'undefined' ? window.innerHeight : 844,
+  }));
 
   // Skip indicator ripples (-10s / +10s)
   const [skipIndicator, setSkipIndicator] = useState(null);
@@ -156,6 +162,47 @@ export default function VideoPlayer({ movie, cleanTitle, onEpisodeChange, onFull
     };
   }, [isPlaying, startHideControlsTimer]);
 
+  // Track dynamic window viewport for simulated landscape rotation
+  useEffect(() => {
+    const handleResize = () => {
+      setViewportSize({
+        width: window.innerWidth,
+        height: window.innerHeight,
+      });
+    };
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('orientationchange', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('orientationchange', handleResize);
+    };
+  }, []);
+
+  // Cleanup body overflow on unmount
+  useEffect(() => {
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, []);
+
+  // Enter / Exit Simulated Landscape Fullscreen Mode (Works on iPhone with Portrait Lock ON!)
+  const enterPseudoLandscape = useCallback(() => {
+    setIsPseudoLandscape(true);
+    setIsFullscreen(true);
+    onFullscreenChange?.(true);
+    document.body.style.overflow = 'hidden';
+    window.scrollTo({ top: 0, behavior: 'instant' });
+    handleUserActivity();
+  }, [onFullscreenChange, handleUserActivity]);
+
+  const exitPseudoLandscape = useCallback(() => {
+    setIsPseudoLandscape(false);
+    setIsFullscreen(false);
+    onFullscreenChange?.(false);
+    document.body.style.overflow = '';
+    handleUserActivity();
+  }, [onFullscreenChange, handleUserActivity]);
+
   // Track standard Fullscreen API state
   useEffect(() => {
     const handleFsChange = () => {
@@ -165,8 +212,10 @@ export default function VideoPlayer({ movie, cleanTitle, onEpisodeChange, onFull
         document.mozFullScreenElement ||
         document.msFullscreenElement
       );
-      setIsFullscreen(isFs);
-      onFullscreenChange?.(isFs);
+      if (!isFs && !isPseudoLandscape) {
+        setIsFullscreen(false);
+        onFullscreenChange?.(false);
+      }
     };
 
     document.addEventListener('fullscreenchange', handleFsChange);
@@ -175,7 +224,7 @@ export default function VideoPlayer({ movie, cleanTitle, onEpisodeChange, onFull
       document.removeEventListener('fullscreenchange', handleFsChange);
       document.removeEventListener('webkitfullscreenchange', handleFsChange);
     };
-  }, [onFullscreenChange]);
+  }, [isPseudoLandscape, onFullscreenChange]);
 
   // Track iOS Safari native fullscreen events
   useEffect(() => {
@@ -187,13 +236,20 @@ export default function VideoPlayer({ movie, cleanTitle, onEpisodeChange, onFull
       onFullscreenChange?.(true);
     };
     const onEndFs = () => {
-      setIsFullscreen(false);
-      onFullscreenChange?.(false);
+      if (!isPseudoLandscape) {
+        setIsFullscreen(false);
+        onFullscreenChange?.(false);
+      }
     };
     const onModeChange = () => {
       const isFs = video.webkitPresentationMode === 'fullscreen';
-      setIsFullscreen(isFs);
-      onFullscreenChange?.(isFs);
+      if (!isFs && !isPseudoLandscape) {
+        setIsFullscreen(false);
+        onFullscreenChange?.(false);
+      } else if (isFs) {
+        setIsFullscreen(true);
+        onFullscreenChange?.(true);
+      }
     };
 
     video.addEventListener('webkitbeginfullscreen', onBeginFs);
@@ -205,7 +261,7 @@ export default function VideoPlayer({ movie, cleanTitle, onEpisodeChange, onFull
       video.removeEventListener('webkitendfullscreen', onEndFs);
       video.removeEventListener('webkitpresentationmodechanged', onModeChange);
     };
-  }, [streamUrl, onFullscreenChange]);
+  }, [streamUrl, isPseudoLandscape, onFullscreenChange]);
 
   // Play / Pause toggle
   const togglePlay = () => {
@@ -239,17 +295,17 @@ export default function VideoPlayer({ movie, cleanTitle, onEpisodeChange, onFull
     handleUserActivity();
   };
 
-  // Fullscreen toggle (Handles desktop, Android, and iOS natively)
+  const isPortrait = viewportSize.width <= viewportSize.height;
+
+  // Fullscreen toggle (Handles desktop, Android, and iPhone auto-landscape without Portrait Lock issues)
   const toggleFullscreen = () => {
-    // 1. On iPhone / iOS: Launch Apple's native AVPlayer
-    // AVPlayer natively takes over full screen, auto-rotates to landscape for 16:9,
-    // and ignores portrait orientation lock without any overlapping navbar bugs!
-    if (isIPhoneDevice() && videoRef.current && typeof videoRef.current.webkitEnterFullscreen === 'function') {
-      videoRef.current.webkitEnterFullscreen();
+    // 1. If currently in pseudo landscape mode, exit it
+    if (isPseudoLandscape) {
+      exitPseudoLandscape();
       return;
     }
 
-    // 2. If already in browser fullscreen, exit it
+    // 2. If in native browser fullscreen, exit it
     if (document.fullscreenElement || document.webkitFullscreenElement) {
       if (document.exitFullscreen) {
         document.exitFullscreen().catch(() => {});
@@ -264,7 +320,15 @@ export default function VideoPlayer({ movie, cleanTitle, onEpisodeChange, onFull
       return;
     }
 
-    // 3. Desktop / Android / iPad: Standard element.requestFullscreen on container
+    // 3. iPhone / Mobile in Portrait mode:
+    // Enter simulated landscape fullscreen directly!
+    // Rotates 90 degrees automatically to landscape without touching Portrait Orientation Lock!
+    if (isIPhoneDevice() || (isPortrait && /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent))) {
+      enterPseudoLandscape();
+      return;
+    }
+
+    // 4. Desktop / Laptop / Landscape Tablet: Standard element.requestFullscreen
     if (containerRef.current) {
       if (containerRef.current.requestFullscreen) {
         containerRef.current
@@ -277,17 +341,14 @@ export default function VideoPlayer({ movie, cleanTitle, onEpisodeChange, onFull
             }
           })
           .catch(() => {
-            // Fallback to video element fullscreen if container fails
-            if (videoRef.current?.webkitEnterFullscreen) {
-              videoRef.current.webkitEnterFullscreen();
-            }
+            enterPseudoLandscape();
           });
       } else if (containerRef.current.webkitRequestFullscreen) {
         containerRef.current.webkitRequestFullscreen();
         setIsFullscreen(true);
         onFullscreenChange?.(true);
-      } else if (videoRef.current?.webkitEnterFullscreen) {
-        videoRef.current.webkitEnterFullscreen();
+      } else {
+        enterPseudoLandscape();
       }
     }
 
@@ -333,12 +394,15 @@ export default function VideoPlayer({ movie, cleanTitle, onEpisodeChange, onFull
     handleUserActivity();
   };
 
-  // Timeline / Scrubber events
+  const isRotated = isPseudoLandscape && isPortrait;
+
+  // Timeline / Scrubber events (with rotated coordinates support)
   const handleScrubberClick = (e) => {
     if (!progressBarRef.current || !videoRef.current || !duration) return;
     const rect = progressBarRef.current.getBoundingClientRect();
-    const clickPos = e.clientX - rect.left;
-    const percentage = Math.max(0, Math.min(1, clickPos / rect.width));
+    const clickPos = isRotated ? e.clientY - rect.top : e.clientX - rect.left;
+    const totalSpan = isRotated ? rect.height : rect.width;
+    const percentage = Math.max(0, Math.min(1, clickPos / totalSpan));
     const newTime = percentage * duration;
     videoRef.current.currentTime = newTime;
     setCurrentTime(newTime);
@@ -348,8 +412,9 @@ export default function VideoPlayer({ movie, cleanTitle, onEpisodeChange, onFull
   const handleScrubberMouseMove = (e) => {
     if (!progressBarRef.current || !duration) return;
     const rect = progressBarRef.current.getBoundingClientRect();
-    const clickPos = e.clientX - rect.left;
-    const percentage = Math.max(0, Math.min(1, clickPos / rect.width));
+    const clickPos = isRotated ? e.clientY - rect.top : e.clientX - rect.left;
+    const totalSpan = isRotated ? rect.height : rect.width;
+    const percentage = Math.max(0, Math.min(1, clickPos / totalSpan));
     setHoverPosition(percentage * 100);
     setHoverTime(percentage * duration);
   };
@@ -362,8 +427,9 @@ export default function VideoPlayer({ movie, cleanTitle, onEpisodeChange, onFull
     if (!progressBarRef.current || !videoRef.current || !duration || !e.touches[0]) return;
     const rect = progressBarRef.current.getBoundingClientRect();
     const touch = e.touches[0];
-    const clickPos = touch.clientX - rect.left;
-    const percentage = Math.max(0, Math.min(1, clickPos / rect.width));
+    const clickPos = isRotated ? touch.clientY - rect.top : touch.clientX - rect.left;
+    const totalSpan = isRotated ? rect.height : rect.width;
+    const percentage = Math.max(0, Math.min(1, clickPos / totalSpan));
     const newTime = percentage * duration;
     videoRef.current.currentTime = newTime;
     setCurrentTime(newTime);
@@ -415,6 +481,12 @@ export default function VideoPlayer({ movie, cleanTitle, onEpisodeChange, onFull
           e.preventDefault();
           toggleMute();
           break;
+        case 'escape':
+          if (isPseudoLandscape) {
+            e.preventDefault();
+            exitPseudoLandscape();
+          }
+          break;
         default:
           break;
       }
@@ -422,28 +494,30 @@ export default function VideoPlayer({ movie, cleanTitle, onEpisodeChange, onFull
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [duration, isMuted, volume]);
+  }, [duration, isMuted, volume, isPseudoLandscape, exitPseudoLandscape]);
 
   // Double-tap gesture handler for mobile & desktop
   const handleVideoTap = (e) => {
     const now = Date.now();
     const rect = e.currentTarget.getBoundingClientRect();
     const clientX = (e.clientX || (e.touches && e.touches[0]?.clientX) || 0) - rect.left;
-    const width = rect.width;
+    const clientY = (e.clientY || (e.touches && e.touches[0]?.clientY) || 0) - rect.top;
+    const width = isRotated ? rect.height : rect.width;
+    const tapPos = isRotated ? clientY : clientX;
 
     if (now - lastTapRef.current.time < 320) {
       if (tapTimeoutRef.current) clearTimeout(tapTimeoutRef.current);
 
-      if (clientX < width * 0.4) {
+      if (tapPos < width * 0.4) {
         skipSeconds(-10);
-      } else if (clientX > width * 0.6) {
+      } else if (tapPos > width * 0.6) {
         skipSeconds(10);
       } else {
         togglePlay();
       }
       lastTapRef.current = { time: 0, x: 0 };
     } else {
-      lastTapRef.current = { time: now, x: clientX };
+      lastTapRef.current = { time: now, x: tapPos };
       tapTimeoutRef.current = setTimeout(() => {
         setShowControls((prev) => !prev);
         if (!showControls) startHideControlsTimer();
@@ -490,14 +564,50 @@ export default function VideoPlayer({ movie, cleanTitle, onEpisodeChange, onFull
 
   const playedPercentage = duration > 0 ? (currentTime / duration) * 100 : 0;
 
+  // Compute container styling for simulated landscape fullscreen
+  const pseudoFullscreenStyles = isPseudoLandscape
+    ? isRotated
+      ? {
+          position: 'fixed',
+          top: '50%',
+          left: '50%',
+          width: `${viewportSize.height}px`,
+          height: `${viewportSize.width}px`,
+          transform: 'translate(-50%, -50%) rotate(90deg)',
+          transformOrigin: 'center center',
+          zIndex: 999999,
+          maxWidth: 'none',
+          maxHeight: 'none',
+          borderRadius: 0,
+          border: 'none',
+          backgroundColor: '#000000',
+        }
+      : {
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          zIndex: 999999,
+          maxWidth: 'none',
+          maxHeight: 'none',
+          borderRadius: 0,
+          border: 'none',
+          backgroundColor: '#000000',
+        }
+    : {};
+
   return (
     <div
       ref={containerRef}
+      style={pseudoFullscreenStyles}
       onMouseMove={handleUserActivity}
       onTouchStart={handleUserActivity}
-      className={`relative w-full aspect-video max-h-[min(76vh,780px)] bg-black overflow-hidden shadow-2xl select-none group flex items-center justify-center rounded-2xl sm:rounded-3xl border border-[#242436] transition-all duration-300 ${
-        !showControls && isPlaying ? 'cursor-none' : 'cursor-default'
-      }`}
+      className={`relative w-full aspect-video max-h-[min(76vh,780px)] bg-black overflow-hidden shadow-2xl select-none group flex items-center justify-center transition-all duration-300 ${
+        isPseudoLandscape
+          ? ''
+          : 'rounded-2xl sm:rounded-3xl border border-[#242436]'
+      } ${!showControls && isPlaying ? 'cursor-none' : 'cursor-default'}`}
     >
       {/* 1. Direct HTML5 Video Player */}
       {streamUrl && !hasError && (
@@ -612,10 +722,26 @@ export default function VideoPlayer({ movie, cleanTitle, onEpisodeChange, onFull
               ? 'opacity-100 pointer-events-auto'
               : 'opacity-0 pointer-events-none'
           }`}
+          style={{
+            paddingLeft: isRotated ? 'max(24px, env(safe-area-inset-top, 24px))' : undefined,
+            paddingRight: isRotated ? 'max(16px, env(safe-area-inset-bottom, 16px))' : undefined,
+          }}
         >
-          {/* Top Bar: Clean Title & Dub Indo Badge */}
+          {/* Top Bar: Back Button, Clean Title & Dub Indo Badge */}
           <div className="w-full bg-gradient-to-b from-black/85 via-black/45 to-transparent p-3 sm:p-5 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2.5 min-w-0 pr-2">
+              {/* Single Fullscreen Exit / Back Button (ONLY rendered in fullscreen, zero stacking bugs) */}
+              {(isPseudoLandscape || isFullscreen) && (
+                <button
+                  onClick={toggleFullscreen}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/15 hover:bg-white/25 text-white border border-white/20 text-xs font-medium backdrop-blur-md transition-all active:scale-95 shadow-lg shrink-0"
+                  title="Keluar Layar Penuh"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  <span>Kembali</span>
+                </button>
+              )}
+
               <span className="bg-[#E50914] text-white text-[10px] font-bold px-2 py-0.5 rounded shrink-0 uppercase tracking-wider">
                 DUB INDO
               </span>
@@ -662,7 +788,14 @@ export default function VideoPlayer({ movie, cleanTitle, onEpisodeChange, onFull
           </div>
 
           {/* Bottom Control Bar (Two Dedicated Rows: Scrubber on Top, Buttons Below) */}
-          <div className="w-full bg-gradient-to-t from-black/95 via-black/80 to-transparent pt-6 pb-3 sm:pb-4 px-3 sm:px-6 flex flex-col gap-2">
+          <div
+            className="w-full bg-gradient-to-t from-black/95 via-black/80 to-transparent pt-6 pb-3 sm:pb-4 px-3 sm:px-6 flex flex-col gap-2"
+            style={{
+              paddingLeft: isRotated ? 'max(24px, env(safe-area-inset-top, 24px))' : undefined,
+              paddingRight: isRotated ? 'max(16px, env(safe-area-inset-bottom, 16px))' : undefined,
+              paddingBottom: isRotated ? 'max(12px, env(safe-area-inset-bottom, 12px))' : undefined,
+            }}
+          >
             {/* ROW 1: Dedicated Scrubber / Progress Bar (Zero Overlap with any buttons) */}
             <div
               ref={progressBarRef}
@@ -808,9 +941,9 @@ export default function VideoPlayer({ movie, cleanTitle, onEpisodeChange, onFull
                 <button
                   onClick={toggleFullscreen}
                   className="p-1.5 sm:p-2 rounded-lg text-slate-200 hover:text-white hover:bg-white/10 transition-colors"
-                  title={isFullscreen ? 'Keluar Layar Penuh (F)' : 'Layar Penuh (F)'}
+                  title={isPseudoLandscape || isFullscreen ? 'Keluar Layar Penuh (F)' : 'Layar Penuh (F)'}
                 >
-                  {isFullscreen ? (
+                  {isPseudoLandscape || isFullscreen ? (
                     <Minimize className="w-4 h-4 sm:w-5 sm:h-5 text-[#00E5FF]" />
                   ) : (
                     <Maximize className="w-4 h-4 sm:w-5 sm:h-5" />

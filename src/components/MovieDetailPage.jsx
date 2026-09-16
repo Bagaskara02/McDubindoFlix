@@ -161,7 +161,7 @@ export default function MovieDetailPage({
       {/* Main Detail Page Body */}
       <main className="flex-1 w-full max-w-[1440px] mx-auto px-3 sm:px-5 lg:px-8 py-4 sm:py-6 space-y-6 sm:space-y-8">
         {/* Cinema Video Player Container */}
-        <section ref={playerRef} className="w-full mx-auto relative z-20">
+        <section ref={playerRef} className={`w-full mx-auto ${isPlayerFullscreen ? 'relative z-[99999]' : 'relative z-20'}`}>
           <VideoPlayer
             movie={currentMovie}
             cleanTitle={cleanTitle}
