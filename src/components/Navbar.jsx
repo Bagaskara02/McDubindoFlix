@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Bookmark, X, Film, Tv, Sparkles, Smartphone, Menu } from 'lucide-react';
+import { Search, Bookmark, X, Film, Tv, Sparkles, Smartphone, Menu, Download } from 'lucide-react';
 
 export default function Navbar({
   searchQuery,
@@ -78,7 +78,7 @@ export default function Navbar({
             })}
           </nav>
 
-          {/* Action Bar (Search, Watchlist, Apple/Android PWA) */}
+          {/* Action Bar (Search, Watchlist, Download APK, PWA) */}
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             {/* Search Bar Input (Desktop) */}
             <div className="hidden sm:flex relative items-center shrink-0">
@@ -124,14 +124,26 @@ export default function Navbar({
               )}
             </button>
 
+            {/* Download APK Button (Direct link for Android) */}
+            <a
+              href="/downloads/McDubindoFlix.apk"
+              download="McDubindoFlix.apk"
+              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25 transition-all whitespace-nowrap shrink-0 shadow-sm"
+              title="Download APK Android (Versi Flutter)"
+            >
+              <Download className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="hidden sm:inline">Download APK</span>
+              <span className="sm:hidden text-[10px]">APK</span>
+            </a>
+
             {/* PWA install guide trigger */}
             <button
               onClick={onOpenPwaGuide}
-              className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium bg-cyan-500/10 text-[#00E5FF] border border-[#00E5FF]/30 hover:bg-cyan-500/20 transition-all whitespace-nowrap shrink-0"
-              title="Pasang di Layar Utama (Apple / Android)"
+              className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium bg-cyan-500/10 text-[#00E5FF] border border-[#00E5FF]/30 hover:bg-cyan-500/20 transition-all whitespace-nowrap shrink-0"
+              title="Panduan Pasang Aplikasi (Apple / Android)"
             >
               <Smartphone className="w-3.5 h-3.5 shrink-0" />
-              <span>Pasang App</span>
+              <span>Petunjuk</span>
             </button>
 
             {/* Mobile Hamburger Menu */}
@@ -191,15 +203,27 @@ export default function Navbar({
                 </button>
               );
             })}
+
+            {/* Mobile Menu Action Buttons */}
+            <a
+              href="/downloads/McDubindoFlix.apk"
+              download="McDubindoFlix.apk"
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="col-span-2 px-3 py-2.5 rounded-xl text-xs font-bold text-center bg-gradient-to-r from-emerald-600 to-teal-600 text-white flex items-center justify-center gap-2 shadow-md shadow-emerald-900/40 mt-1"
+            >
+              <Download className="w-4 h-4" />
+              <span>Download APK Android (Versi Flutter 52 MB)</span>
+            </a>
+
             <button
               onClick={() => {
                 onOpenPwaGuide();
                 setIsMobileMenuOpen(false);
               }}
-              className="col-span-2 px-3 py-2.5 rounded-xl text-xs font-bold text-center bg-[#00E5FF]/15 text-[#00E5FF] border border-[#00E5FF]/30 flex items-center justify-center gap-2 mt-1"
+              className="col-span-2 px-3 py-2 rounded-xl text-xs font-medium text-center bg-white/5 text-slate-300 border border-white/10 hover:bg-white/10 flex items-center justify-center gap-2"
             >
-              <Smartphone className="w-4 h-4" />
-              <span>Tambahkan ke Layar Utama (Apple / Android)</span>
+              <Smartphone className="w-4 h-4 text-cyan-400" />
+              <span>Panduan Pasang App (Apple / Android)</span>
             </button>
           </div>
         )}

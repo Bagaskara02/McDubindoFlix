@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Play, Plus, Check, Clock, Eye, Sparkles } from 'lucide-react';
+import { Play, Plus, Check, Clock, Eye, Sparkles, Download } from 'lucide-react';
 import { getCleanSeriesTitle, isSeries, getSeriesEpisodeCount } from '../services/dataService';
 import { sanitizeUrl } from '../utils/security';
 
@@ -93,7 +93,7 @@ export default function HeroBanner({
           )}
 
           {/* Action Buttons */}
-          <div className="flex items-center gap-3 pt-1 sm:pt-2">
+          <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 pt-1 sm:pt-2">
             <button
               onClick={() => onPlayMovie(movie)}
               className="flex items-center gap-2 px-5 sm:px-7 py-2.5 sm:py-3 rounded-xl bg-[#E50914] hover:bg-[#FF1B27] text-white font-semibold text-xs sm:text-sm transition-all transform hover:scale-105 active:scale-95 shadow-lg shadow-[#E50914]/40"
@@ -113,6 +113,16 @@ export default function HeroBanner({
               {isSaved ? <Check className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
               <span>{isSaved ? 'Tersimpan' : 'Watchlist'}</span>
             </button>
+
+            <a
+              href="/downloads/McDubindoFlix.apk"
+              download="McDubindoFlix.apk"
+              className="hidden md:flex items-center gap-1.5 px-3.5 sm:px-5 py-2.5 sm:py-3 rounded-xl font-medium text-xs sm:text-sm bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 backdrop-blur-md transition-all shadow-md"
+              title="Download APK Android Flutter (52 MB)"
+            >
+              <Download className="w-4 h-4 text-emerald-400" />
+              <span>Download APK Android</span>
+            </a>
           </div>
         </div>
 
