@@ -5,6 +5,7 @@ import CategoryNav from './components/CategoryNav';
 import MovieCard from './components/MovieCard';
 import MovieDetailPage from './components/MovieDetailPage';
 import WatchlistModal from './components/WatchlistModal';
+import HistoryModal from './components/HistoryModal';
 import PwaInstallPrompt from './components/PwaInstallPrompt';
 import ContinueWatchingRail from './components/ContinueWatchingRail';
 import LatestMoviesRail from './components/LatestMoviesRail';
@@ -40,6 +41,7 @@ export default function App() {
   });
 
   const [isWatchlistOpen, setIsWatchlistOpen] = useState(false);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isPwaGuideOpen, setIsPwaGuideOpen] = useState(false);
 
   // Persist watchlist changes
@@ -191,7 +193,7 @@ export default function App() {
     }
     switch (activeCategory) {
       case 'latest':
-        return 'Update Film & Serial Terbaru (Baru Di-scrape)';
+        return 'Update Film & Serial Terbaru';
       case 'trending':
         return 'Sedang Trending Hari Ini';
       case 'boxoffice':
@@ -231,6 +233,17 @@ export default function App() {
           onRemoveFromWatchlist={handleRemoveFromWatchlist}
           onClearWatchlist={handleClearWatchlist}
         />
+        <HistoryModal
+          isOpen={isHistoryOpen}
+          onClose={() => setIsHistoryOpen(false)}
+          history={watchHistory}
+          onResumeMovie={(item) => {
+            setIsHistoryOpen(false);
+            handleResumeMovie(item);
+          }}
+          onRemoveItem={handleRemoveHistoryItem}
+          onClearHistory={handleClearAllHistory}
+        />
         <PwaInstallPrompt
           isOpen={isPwaGuideOpen}
           onClose={() => setIsPwaGuideOpen(false)}
@@ -250,6 +263,8 @@ export default function App() {
         onCategorySelect={handleCategorySelect}
         watchlistCount={watchlist.length}
         onOpenWatchlist={() => setIsWatchlistOpen(true)}
+        historyCount={watchHistory.length}
+        onOpenHistory={() => setIsHistoryOpen(true)}
         onOpenPwaGuide={() => setIsPwaGuideOpen(true)}
       />
 
@@ -384,6 +399,19 @@ export default function App() {
           </button>
         </div>
       </footer>
+
+      {/* History Modal */}
+      <HistoryModal
+        isOpen={isHistoryOpen}
+        onClose={() => setIsHistoryOpen(false)}
+        history={watchHistory}
+        onResumeMovie={(item) => {
+          setIsHistoryOpen(false);
+          handleResumeMovie(item);
+        }}
+        onRemoveItem={handleRemoveHistoryItem}
+        onClearHistory={handleClearAllHistory}
+      />
 
       {/* Watchlist Modal */}
       <WatchlistModal

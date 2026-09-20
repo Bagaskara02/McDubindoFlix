@@ -21,11 +21,11 @@ export default function LatestMoviesRail({
             <h3 className="text-base sm:text-lg font-bold text-white tracking-normal flex items-center gap-2">
               Update Terbaru
               <span className="bg-[#E50914] text-white text-[10px] font-bold px-1.5 py-0.5 rounded uppercase">
-                Baru Di-scrape
+                BARU
               </span>
             </h3>
             <p className="text-[11px] text-slate-400">
-              Film dan episode serial Dubbing Indonesia yang baru saja di-upload
+              Film dan episode serial Dubbing Indonesia yang baru saja ditambahkan
             </p>
           </div>
         </div>

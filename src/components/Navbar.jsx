@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Bookmark, X, Film, Tv, Sparkles, Smartphone, Menu, Download } from 'lucide-react';
+import { Search, Bookmark, X, Film, Tv, Sparkles, Smartphone, Menu, Download, History } from 'lucide-react';
 
 export default function Navbar({
   searchQuery,
@@ -8,6 +8,8 @@ export default function Navbar({
   onCategorySelect,
   watchlistCount,
   onOpenWatchlist,
+  historyCount = 0,
+  onOpenHistory,
   onOpenPwaGuide,
 }) {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -109,6 +111,21 @@ export default function Navbar({
               <Search className="w-5 h-5" />
             </button>
 
+            {/* History / Riwayat Button */}
+            <button
+              onClick={onOpenHistory}
+              className="relative p-2 sm:px-2.5 sm:py-1.5 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0"
+              title="Riwayat Tontonan"
+            >
+              <History className="w-4 h-4 text-[#00E5FF]" />
+              <span className="hidden xl:inline text-xs font-medium">History</span>
+              {historyCount > 0 && (
+                <span className="px-1.5 py-0.2 text-[10px] font-bold bg-[#00E5FF] text-black rounded-full min-w-4 text-center shadow">
+                  {historyCount}
+                </span>
+              )}
+            </button>
+
             {/* Watchlist Button */}
             <button
               onClick={onOpenWatchlist}
@@ -203,6 +220,31 @@ export default function Navbar({
                 </button>
               );
             })}
+
+            {/* Mobile History & Watchlist Row */}
+            <div className="col-span-2 grid grid-cols-2 gap-2 mt-1">
+              <button
+                onClick={() => {
+                  onOpenHistory?.();
+                  setIsMobileMenuOpen(false);
+                }}
+                className="px-3 py-2.5 rounded-xl text-xs font-semibold bg-cyan-500/15 text-[#00E5FF] border border-[#00E5FF]/30 flex items-center justify-center gap-1.5 hover:bg-cyan-500/25 transition-all"
+              >
+                <History className="w-4 h-4" />
+                <span>History ({historyCount})</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  onOpenWatchlist?.();
+                  setIsMobileMenuOpen(false);
+                }}
+                className="px-3 py-2.5 rounded-xl text-xs font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/30 flex items-center justify-center gap-1.5 hover:bg-amber-500/25 transition-all"
+              >
+                <Bookmark className="w-4 h-4" />
+                <span>Watchlist ({watchlistCount})</span>
+              </button>
+            </div>
 
             {/* Mobile Menu Action Buttons */}
             <a

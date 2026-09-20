@@ -252,6 +252,93 @@ export function groupSeriesInList(movies) {
 }
 
 /**
+ * Helper to parse duration string to total seconds
+ */
+export function parseDurationToSeconds(durationStr) {
+  if (!durationStr || typeof durationStr !== 'string') return 0;
+  const parts = durationStr.trim().split(':').map((p) => parseInt(p, 10));
+  if (parts.some(isNaN)) return 0;
+  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+  if (parts.length === 2) return parts[0] * 60 + parts[1];
+  return parts[0] || 0;
+}
+
+/**
+ * Filter out Short Videos (< 10 mins), Anime, and non-Netflix Indonesian films
+ */
+const animeKeywords = [
+  'anime', 'aikatsu', 'naruto', 'boruto', 'one piece', 'dragon ball', 'doraemon',
+  'shinchan', 'crayon shin', 'bleach', 'jujutsu', 'demon slayer', 'kimetsu',
+  'attack on titan', 'shingeki', 'detective conan', 'conan', 'pokemon', 'pokémon',
+  'digimon', 'black clover', 'haikyuu', 'my hero academia', 'boku no hero',
+  'tokyo ghoul', 'hunter x hunter', 'hunterxhunter', 'chainsaw man', 'solo leveling',
+  'inuyasha', 'fairy tail', 'death note', 'spy x family', 'sailor moon', 'gundam',
+  'captain tsubasa', 'tsubasa', 'slam dunk', 'one punch man', 'sword art online',
+  'tokyo revengers', 'danmachi', 'overlord', 're:zero', 'yu-gi-oh', 'yugioh',
+  'beyblade', 'inazuma', 'kuroko', 'blue lock', 'kaiju no', 'oshi no ko',
+  'dr. stone', 'dr stone', 'vinland', 'mashle', 'frieren', 'dungeon meshi',
+  'shangri-la', 'wind breaker', 'isekai', 'mecha', 'otaku', 'versi televisi',
+  'liar game', 'keroro', 'zenki', 'yokoso yoko',
+];
+
+const indoLocalKeywords = [
+  'sengkolo', 'tuhan, benarkah', 'kuntilanak', 'reuni z', 'lawang sewu',
+  'modal nekad', 'jomblo (2006)', 'tentang dia', 'bulan terbelah', 'cewek gue katrok',
+  'pamali', 'ftv sctv', 'bioskop indonesia', 'special dokumenter', 'al-bahjah',
+  'film indonesia', 'bioskop indonesia', 'sinetron', 'ftv', 'film nasional'
+];
+
+const indoLocalUploaders = [
+  'senada', 'fachrya895', 'theodorus fabian lunel', 'lukipurwanto', 'joharman hutabalian', 'dimas 227'
+];
+
+export function isAllowedInLatest(movie) {
+  if (!movie) return false;
+
+  const title = (movie.title || '').toLowerCase();
+  const desc = (movie.description || '').toLowerCase();
+  const cat = (movie.category || '').toLowerCase();
+  const tags = Array.isArray(movie.tags) ? movie.tags.map((t) => String(t).toLowerCase()).join(' ') : '';
+  const uploader = (movie.uploader || '').toLowerCase();
+
+  // 1. FILTER SHORT VIDEOS (Under 10 minutes / 600s)
+  const seconds = parseDurationToSeconds(movie.duration);
+  if (seconds > 0 && seconds < 600) {
+    return false;
+  }
+  if (/\b(trailer|teaser|clip|cuplikan|live\s*action|parodi|skit|short)\b/i.test(title)) {
+    return false;
+  }
+
+  // 2. FILTER ANIME
+  if (cat.includes('anime') || tags.includes('anime')) {
+    return false;
+  }
+  if (animeKeywords.some((k) => title.includes(k) || tags.includes(k) || desc.includes(k))) {
+    return false;
+  }
+
+  // 3. FILTER FILM INDONESIA YANG BUKAN NETFLIX
+  const isIndoLocal =
+    indoLocalKeywords.some((k) => title.includes(k) || tags.includes(k)) ||
+    indoLocalUploaders.includes(uploader);
+
+  if (isIndoLocal) {
+    const isNetflix =
+      title.includes('netflix') ||
+      desc.includes('netflix') ||
+      tags.includes('netflix') ||
+      cat.includes('netflix');
+
+    if (!isNetflix) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+/**
  * Fetch movies by category with automatic series grouping
  */
 export async function getCategoryMovies(category, limit = 50) {
@@ -287,7 +374,10 @@ export async function getCategoryMovies(category, limit = 50) {
       filename = 'popular.json';
   }
 
-  const raw = await loadJson(filename);
+  let raw = await loadJson(filename);
+  if (category === 'latest') {
+    raw = raw.filter(isAllowedInLatest);
+  }
   const grouped = groupSeriesInList(raw);
   return limit > 0 ? grouped.slice(0, limit) : grouped;
 }
