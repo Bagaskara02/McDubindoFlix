@@ -277,6 +277,9 @@ export async function getCategoryMovies(category, limit = 50) {
     case 'series':
       filename = 'series.json';
       break;
+    case 'latest':
+      filename = 'latest.json';
+      break;
     case 'movies':
       filename = 'movies.json';
       break;
@@ -445,6 +448,77 @@ export async function getStreamSource(movie) {
   } catch (_) {}
 
   return null;
+}
+
+/**
+ * Watch History (Lanjutkan Menonton) Helpers
+ */
+const HISTORY_STORAGE_KEY = 'mcdubindoflix_history';
+
+export function getWatchHistory() {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(HISTORY_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch (err) {
+    console.error('Failed to parse watch history:', err);
+    return [];
+  }
+}
+
+export function saveWatchProgress({ movie, cleanTitle, episodeLabel, currentTime, duration }) {
+  if (typeof window === 'undefined' || !movie || !currentTime || isNaN(currentTime)) return;
+  try {
+    const history = getWatchHistory();
+    const id = String(movie.id || movie.slug);
+    const validDuration = duration && !isNaN(duration) && duration > 0 ? duration : 0;
+    const percent = validDuration > 0 ? Math.min(100, Math.round((currentTime / validDuration) * 100)) : 0;
+
+    // Filter out existing item for this movie/series
+    const updated = history.filter((item) => String(item.id) !== id && item.slug !== movie.slug);
+
+    // Insert at beginning (most recently watched)
+    updated.unshift({
+      id,
+      slug: movie.slug || '',
+      movie,
+      cleanTitle: cleanTitle || movie.title || '',
+      episodeLabel: episodeLabel || '',
+      currentTime: Math.floor(currentTime),
+      duration: Math.floor(validDuration),
+      percent,
+      updatedAt: Date.now(),
+    });
+
+    // Limit history to 30 items
+    const trimmed = updated.slice(0, 30);
+    localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(trimmed));
+    return trimmed;
+  } catch (err) {
+    console.error('Failed to save watch history:', err);
+  }
+}
+
+export function removeWatchHistory(idOrSlug) {
+  if (typeof window === 'undefined') return [];
+  try {
+    const history = getWatchHistory();
+    const updated = history.filter((item) => String(item.id) !== String(idOrSlug) && item.slug !== idOrSlug);
+    localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(updated));
+    return updated;
+  } catch (err) {
+    console.error('Failed to remove item from history:', err);
+    return [];
+  }
+}
+
+export function clearWatchHistory() {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.removeItem(HISTORY_STORAGE_KEY);
+  } catch (err) {
+    console.error('Failed to clear history:', err);
+  }
 }
 
 

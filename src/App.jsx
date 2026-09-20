@@ -6,7 +6,16 @@ import MovieCard from './components/MovieCard';
 import MovieDetailPage from './components/MovieDetailPage';
 import WatchlistModal from './components/WatchlistModal';
 import PwaInstallPrompt from './components/PwaInstallPrompt';
-import { getCategoryMovies, searchMovies, initSeriesIndex } from './services/dataService';
+import ContinueWatchingRail from './components/ContinueWatchingRail';
+import LatestMoviesRail from './components/LatestMoviesRail';
+import {
+  getCategoryMovies,
+  searchMovies,
+  initSeriesIndex,
+  getWatchHistory,
+  removeWatchHistory,
+  clearWatchHistory,
+} from './services/dataService';
 import { AlertCircle } from 'lucide-react';
 
 export default function App() {
@@ -15,6 +24,8 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [movies, setMovies] = useState([]);
   const [featuredMovies, setFeaturedMovies] = useState([]);
+  const [latestMovies, setLatestMovies] = useState([]);
+  const [watchHistory, setWatchHistory] = useState(() => getWatchHistory());
   const [isLoading, setIsLoading] = useState(true);
   const [activeMovie, setActiveMovie] = useState(null);
 
@@ -46,13 +57,16 @@ export default function App() {
       setIsLoading(true);
       await initSeriesIndex();
 
-      const [pop, box] = await Promise.all([
+      const [pop, box, lat] = await Promise.all([
         getCategoryMovies('popular', 60),
         getCategoryMovies('boxoffice', 20),
+        getCategoryMovies('latest', 24),
       ]);
 
       setMovies(pop);
       setFeaturedMovies([...box.slice(0, 5), ...pop.slice(0, 5)]);
+      setLatestMovies(lat);
+      setWatchHistory(getWatchHistory());
       setIsLoading(false);
     }
     init();
@@ -113,10 +127,37 @@ export default function App() {
   const handleBackToHome = useCallback(() => {
     setCurrentView('home');
     setActiveMovie(null);
+    setWatchHistory(getWatchHistory());
     try {
       window.history.pushState(null, '', window.location.pathname);
     } catch (_) {}
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
+
+  // Resume Movie from Watch History (starts at exact seconds)
+  const handleResumeMovie = useCallback(
+    (historyItem) => {
+      const movieWithResume = {
+        ...historyItem.movie,
+        resumeTime: historyItem.currentTime || 0,
+      };
+      handleOpenMovie(movieWithResume);
+    },
+    [handleOpenMovie]
+  );
+
+  // Remove single item from Watch History
+  const handleRemoveHistoryItem = useCallback((id) => {
+    const updated = removeWatchHistory(id);
+    setWatchHistory(updated);
+  }, []);
+
+  // Clear all Watch History
+  const handleClearAllHistory = useCallback(() => {
+    if (window.confirm('Yakin ingin mengosongkan seluruh riwayat tontonan?')) {
+      clearWatchHistory();
+      setWatchHistory([]);
+    }
   }, []);
 
   // Watchlist toggle handler
@@ -149,6 +190,8 @@ export default function App() {
       return `Hasil Pencarian "${searchQuery}" (${movies.length})`;
     }
     switch (activeCategory) {
+      case 'latest':
+        return 'Update Film & Serial Terbaru (Baru Di-scrape)';
       case 'trending':
         return 'Sedang Trending Hari Ini';
       case 'boxoffice':
@@ -219,6 +262,25 @@ export default function App() {
             onPlayMovie={handleOpenMovie}
             watchlist={watchlist}
             onToggleWatchlist={handleToggleWatchlist}
+          />
+        )}
+
+        {/* Lanjutkan Menonton (Watch History with Slidebar Menit) */}
+        {!searchQuery.trim() && watchHistory.length > 0 && (
+          <ContinueWatchingRail
+            historyItems={watchHistory}
+            onResumeMovie={handleResumeMovie}
+            onRemoveItem={handleRemoveHistoryItem}
+            onClearHistory={handleClearAllHistory}
+          />
+        )}
+
+        {/* Update Terbaru (Baru Di-scrape / Di-upload) */}
+        {!searchQuery.trim() && activeCategory !== 'latest' && latestMovies.length > 0 && (
+          <LatestMoviesRail
+            movies={latestMovies}
+            onPlayMovie={handleOpenMovie}
+            onSeeAll={() => handleCategorySelect('latest')}
           />
         )}
 

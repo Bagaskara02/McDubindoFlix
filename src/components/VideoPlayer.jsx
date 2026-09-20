@@ -13,8 +13,12 @@ import {
   AlertCircle,
   ExternalLink,
   ArrowLeft,
+  SkipBack,
+  SkipForward,
+  ListVideo,
+  X,
 } from 'lucide-react';
-import { getStreamSource } from '../services/dataService';
+import { getStreamSource, saveWatchProgress } from '../services/dataService';
 import { sanitizeUrl } from '../utils/security';
 
 function formatTime(seconds) {
@@ -38,13 +42,50 @@ const isIPhoneDevice = () => {
   );
 };
 
-export default function VideoPlayer({ movie, cleanTitle, onEpisodeChange, onFullscreenChange }) {
+export default function VideoPlayer({
+  movie,
+  cleanTitle,
+  episodes = [],
+  onSelectEpisode,
+  onEpisodeChange,
+  onFullscreenChange,
+  initialTime = 0,
+}) {
   const containerRef = useRef(null);
   const videoRef = useRef(null);
   const progressBarRef = useRef(null);
   const hideControlsTimerRef = useRef(null);
   const tapTimeoutRef = useRef(null);
   const lastTapRef = useRef({ time: 0, x: 0 });
+  const hasSeekedInitialRef = useRef(false);
+  const lastSaveTimeRef = useRef(0);
+
+  // Episode state & navigation
+  const handleEpisodeChange = onSelectEpisode || onEpisodeChange;
+  const currentEpisodeIndex = episodes.findIndex((e) => {
+    return (
+      (movie.id && String(e.movie?.id) === String(movie.id)) ||
+      (movie.slug && e.movie?.slug === movie.slug)
+    );
+  });
+  const currentEpisode = currentEpisodeIndex !== -1 ? episodes[currentEpisodeIndex] : null;
+  const hasPrevEpisode = episodes.length > 1 && currentEpisodeIndex > 0;
+  const hasNextEpisode =
+    episodes.length > 1 && currentEpisodeIndex !== -1 && currentEpisodeIndex < episodes.length - 1;
+
+  const [showEpisodeDrawer, setShowEpisodeDrawer] = useState(false);
+
+  const handlePrevEpisode = () => {
+    if (hasPrevEpisode && handleEpisodeChange) {
+      handleEpisodeChange(episodes[currentEpisodeIndex - 1]);
+    }
+  };
+
+  const handleNextEpisode = () => {
+    if (hasNextEpisode && handleEpisodeChange) {
+      handleEpisodeChange(episodes[currentEpisodeIndex + 1]);
+    }
+  };
 
   // Stream & playback state
   const [streamUrl, setStreamUrl] = useState('');
@@ -90,6 +131,7 @@ export default function VideoPlayer({ movie, cleanTitle, onEpisodeChange, onFull
 
   // Fetch direct stream URL when movie changes
   useEffect(() => {
+    hasSeekedInitialRef.current = false;
     let isMounted = true;
     setIsLoading(true);
     setIsBuffering(false);
@@ -526,23 +568,52 @@ export default function VideoPlayer({ movie, cleanTitle, onEpisodeChange, onFull
   };
 
   // Video HTML5 event listeners
+  const saveProgressThrottled = useCallback(
+    (cur, dur) => {
+      if (!movie || !cur || isNaN(cur) || cur < 2) return;
+      const now = Date.now();
+      if (now - lastSaveTimeRef.current > 3500) {
+        lastSaveTimeRef.current = now;
+        saveWatchProgress({
+          movie,
+          cleanTitle,
+          episodeLabel: currentEpisode?.label || '',
+          currentTime: cur,
+          duration: dur,
+        });
+      }
+    },
+    [movie, cleanTitle, currentEpisode]
+  );
+
   const onTimeUpdate = () => {
     if (!videoRef.current || isScrubbing) return;
-    setCurrentTime(videoRef.current.currentTime);
+    const cur = videoRef.current.currentTime;
+    const dur = videoRef.current.duration || duration;
+    setCurrentTime(cur);
     if (videoRef.current.duration) {
       setDuration(videoRef.current.duration);
     }
+    saveProgressThrottled(cur, dur);
 
-    if (videoRef.current.buffered.length > 0 && videoRef.current.duration) {
+    if (videoRef.current.buffered.length > 0 && dur) {
       const bufferedEnd = videoRef.current.buffered.end(videoRef.current.buffered.length - 1);
-      setBufferedPercent((bufferedEnd / videoRef.current.duration) * 100);
+      setBufferedPercent((bufferedEnd / dur) * 100);
     }
   };
 
   const onLoadedMetadata = () => {
     if (videoRef.current) {
-      setDuration(videoRef.current.duration);
+      const dur = videoRef.current.duration;
+      setDuration(dur);
       setIsLoading(false);
+
+      if (!hasSeekedInitialRef.current && initialTime > 0 && initialTime < dur - 5) {
+        hasSeekedInitialRef.current = true;
+        videoRef.current.currentTime = initialTime;
+        setCurrentTime(initialTime);
+      }
+
       videoRef.current.play().catch(() => {});
     }
   };
@@ -553,7 +624,34 @@ export default function VideoPlayer({ movie, cleanTitle, onEpisodeChange, onFull
     setIsLoading(false);
     setIsPlaying(true);
   };
-  const onPause = () => setIsPlaying(false);
+  const onPause = () => {
+    setIsPlaying(false);
+    if (videoRef.current && videoRef.current.currentTime > 2) {
+      saveWatchProgress({
+        movie,
+        cleanTitle,
+        episodeLabel: currentEpisode?.label || '',
+        currentTime: videoRef.current.currentTime,
+        duration: videoRef.current.duration,
+      });
+    }
+  };
+
+  // Save progress on unmount or before switching movie
+  useEffect(() => {
+    return () => {
+      if (videoRef.current && videoRef.current.currentTime > 2) {
+        saveWatchProgress({
+          movie,
+          cleanTitle,
+          episodeLabel: currentEpisode?.label || '',
+          currentTime: videoRef.current.currentTime,
+          duration: videoRef.current.duration,
+        });
+      }
+    };
+  }, [movie, cleanTitle, currentEpisode]);
+
   const onError = (e) => {
     console.warn('HTML5 Video Error:', e);
     setIsBuffering(false);
@@ -872,6 +970,55 @@ export default function VideoPlayer({ movie, cleanTitle, onEpisodeChange, onFull
                   <RotateCw className="w-4 h-4" />
                 </button>
 
+                {/* Episode Navigation & Picker Buttons */}
+                {episodes.length > 1 && (
+                  <>
+                    {/* Prev Episode */}
+                    <button
+                      onClick={handlePrevEpisode}
+                      disabled={!hasPrevEpisode}
+                      className={`p-1.5 rounded-lg transition-colors flex items-center ${
+                        hasPrevEpisode
+                          ? 'text-slate-200 hover:text-white hover:bg-white/10 cursor-pointer'
+                          : 'text-slate-600 opacity-40 cursor-not-allowed'
+                      }`}
+                      title={hasPrevEpisode ? 'Episode Sebelumnya' : 'Episode Pertama'}
+                    >
+                      <SkipBack className="w-4 h-4" />
+                    </button>
+
+                    {/* Next Episode */}
+                    <button
+                      onClick={handleNextEpisode}
+                      disabled={!hasNextEpisode}
+                      className={`p-1.5 rounded-lg transition-colors flex items-center ${
+                        hasNextEpisode
+                          ? 'text-slate-200 hover:text-white hover:bg-white/10 cursor-pointer'
+                          : 'text-slate-600 opacity-40 cursor-not-allowed'
+                      }`}
+                      title={hasNextEpisode ? 'Episode Berikutnya' : 'Episode Terakhir'}
+                    >
+                      <SkipForward className="w-4 h-4" />
+                    </button>
+
+                    {/* Episode Drawer Trigger */}
+                    <button
+                      onClick={() => setShowEpisodeDrawer((prev) => !prev)}
+                      className={`px-2 py-1 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 border ${
+                        showEpisodeDrawer
+                          ? 'bg-[#E50914] text-white border-[#E50914] shadow-md shadow-[#E50914]/40'
+                          : 'bg-white/10 hover:bg-white/20 text-slate-200 border-white/10'
+                      }`}
+                      title="Pilih Episode"
+                    >
+                      <ListVideo className="w-3.5 h-3.5 text-[#00E5FF]" />
+                      <span className="hidden sm:inline text-[11px]">
+                        {currentEpisode ? currentEpisode.label : 'Episode'}
+                      </span>
+                    </button>
+                  </>
+                )}
+
                 {/* Volume & Mute Section */}
                 <div
                   className="relative flex items-center gap-1.5 group/vol"
@@ -951,6 +1098,68 @@ export default function VideoPlayer({ movie, cleanTitle, onEpisodeChange, onFull
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* In-Player Episode Drawer Overlay (Works seamlessly in Normal & Fullscreen Mode) */}
+      {showEpisodeDrawer && episodes.length > 1 && (
+        <div
+          className="absolute inset-y-0 right-0 z-[100] w-72 sm:w-80 max-w-[85%] bg-[#0e0e18]/95 backdrop-blur-xl border-l border-white/15 shadow-2xl flex flex-col p-4 animate-in slide-in-from-right duration-200"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex items-center justify-between pb-3 border-b border-white/10">
+            <div className="flex items-center gap-2">
+              <ListVideo className="w-4 h-4 text-[#00E5FF]" />
+              <h4 className="text-xs sm:text-sm font-bold text-white tracking-wide">Pilih Episode</h4>
+            </div>
+            <button
+              onClick={() => setShowEpisodeDrawer(false)}
+              className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+              title="Tutup Menu Episode"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="text-[11px] text-slate-400 py-2.5 truncate" title={cleanTitle}>
+            {cleanTitle} • {episodes.length} Episode
+          </div>
+
+          {/* Scrollable Episode List */}
+          <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 no-scrollbar">
+            {episodes.map((ep, idx) => {
+              const isCurrent =
+                (movie.id && String(ep.movie?.id) === String(movie.id)) ||
+                (movie.slug && ep.movie?.slug === movie.slug);
+
+              return (
+                <button
+                  key={ep.movie.id || idx}
+                  onClick={() => {
+                    setShowEpisodeDrawer(false);
+                    handleEpisodeChange?.(ep);
+                  }}
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium text-left transition-all ${
+                    isCurrent
+                      ? 'bg-[#E50914] text-white shadow-lg shadow-[#E50914]/40 font-bold ring-1 ring-white/30'
+                      : 'bg-white/5 text-slate-300 hover:text-white hover:bg-white/10 border border-white/5'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span className="w-6 text-[11px] text-slate-400 shrink-0 font-mono">
+                      #{idx + 1}
+                    </span>
+                    <span className="truncate">{ep.label}</span>
+                  </div>
+                  {isCurrent && (
+                    <span className="text-[10px] bg-black/40 px-2 py-0.5 rounded text-white font-bold shrink-0">
+                      Memutar
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
         </div>
       )}

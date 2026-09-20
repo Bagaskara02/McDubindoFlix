@@ -1,9 +1,10 @@
 import React from 'react';
-import { Flame, Film, Tv, Trophy, Sparkles, Compass } from 'lucide-react';
+import { Flame, Film, Tv, Trophy, Sparkles, Compass, Clock } from 'lucide-react';
 
 export default function CategoryNav({ activeCategory, onSelectCategory }) {
   const categories = [
     { id: 'popular', label: 'Semua Populer', icon: Sparkles },
+    { id: 'latest', label: 'Update Terbaru', icon: Clock },
     { id: 'trending', label: 'Trending', icon: Flame },
     { id: 'boxoffice', label: 'Box Office', icon: Trophy },
     { id: 'netflix', label: 'Netflix', icon: Film },

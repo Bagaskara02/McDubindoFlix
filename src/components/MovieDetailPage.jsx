@@ -165,8 +165,11 @@ export default function MovieDetailPage({
           <VideoPlayer
             movie={currentMovie}
             cleanTitle={cleanTitle}
+            episodes={episodes}
+            onSelectEpisode={handleSelectEpisode}
             onEpisodeChange={handleSelectEpisode}
             onFullscreenChange={setIsPlayerFullscreen}
+            initialTime={currentMovie.resumeTime || 0}
           />
         </section>
 
