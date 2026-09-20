@@ -44,46 +44,135 @@ async function loadJson(filename) {
 }
 
 /**
+ * Clean series title removing technical tags, season/episode and metadata
+ */
+export function cleanSeriesName(name) {
+  if (!name) return '';
+  let c = name;
+  c = c.replace(/[\u200B-\u200D\uFEFF\u2060]/g, '');
+  c = c.replace(/\b(1080p|720p|480p|hd|web-dl|blu\s*ray|remastered|end|final|on|full\s*movie)\b/gi, '');
+  c = c.replace(/\b(dub\s*indo|dubbing\s*indonesia|indo\s*dub|dub\s*malay|sub\s*indo|dub\s*indonesia|bahasa\s*indonesia|dubb\s*indonesia)\b/gi, '');
+  c = c.replace(/\b(season\s*\d+|musim\s*\d+)\b/gi, '');
+  c = c.replace(/(\(\s*\d{4}\s*\)|\[\s*\d{4}\s*\])/g, '');
+  c = c.replace(/(\[.*?\]|\(.*?\))/g, '');
+  c = c.replace(/[-_–—:.,\s]+$/g, '');
+  c = c.replace(/^[-_–—:.,\s]+/g, '');
+  c = c.replace(/\s+/g, ' ').trim();
+  return c;
+}
+
+/**
  * Extract series title, season, and episode from raw title string
  */
 export function extractSeriesInfo(rawTitle) {
   if (!rawTitle) return null;
+  let t = rawTitle.replace(/[\u200B-\u200D\uFEFF\u2060]/g, '').trim();
 
-  // 1. Match SxxExx or S01 E01
-  const mSe = rawTitle.match(/\b[sS](\d+)\s*[eE](\d+)\b/);
-  if (mSe) {
-    const season = parseInt(mSe[1], 10) || 1;
-    const episode = parseInt(mSe[2], 10) || 1;
-    const cleanName = rawTitle.replace(/\[?[sS]\d+\s*[eE]\d+\]?/g, '');
-    return { seriesName: cleanName, season, episode };
+  // Pattern A: SxxExx or S01 E01
+  let m = t.match(/^(.*?)\s*\[?[sS](\d+)\s*[eE](\d+)\]?(.*)$/i);
+  if (m) {
+    return {
+      seriesName: cleanSeriesName(m[1]),
+      season: parseInt(m[2], 10),
+      episode: parseInt(m[3], 10),
+      epTitle: m[4].trim(),
+    };
   }
 
-  // 2. Match Season X ... Episode Y
-  const mSeWords = rawTitle.match(/(?:Season|Musim)\s*(\d+).*?(?:Episode|Eps|Ep)\.?\s*(\d+)/i);
-  if (mSeWords) {
-    const season = parseInt(mSeWords[1], 10) || 1;
-    const episode = parseInt(mSeWords[2], 10) || 1;
-    const cleanName = rawTitle.replace(/(?:Season|Musim)\s*\d+.*?(?:Episode|Eps|Ep)\.?\s*\d+.*/i, '');
-    return { seriesName: cleanName, season, episode };
+  // Pattern B: Season X / Musim X ... Episode Y / Eps Y / Ep Y
+  m = t.match(/^(.*?)\s*(?:Season|Musim)\s*(\d+).*?(?:Episode|Eps|Ep)\.?\s*(\d+)(.*)$/i);
+  if (m) {
+    return {
+      seriesName: cleanSeriesName(m[1]),
+      season: parseInt(m[2], 10),
+      episode: parseInt(m[3], 10),
+      epTitle: m[4].trim(),
+    };
   }
 
-  // 3. Match Episode X ... Season Y
-  const mEsWords = rawTitle.match(/(?:Episode|Eps|Ep)\.?\s*(\d+).*?(?:Season|Musim)\s*(\d+)/i);
-  if (mEsWords) {
-    const episode = parseInt(mEsWords[1], 10) || 1;
-    const season = parseInt(mEsWords[2], 10) || 1;
-    const cleanName = rawTitle.replace(/(?:Episode|Eps|Ep)\.?\s*\d+.*?(?:Season|Musim)\s*\d+.*/i, '');
-    return { seriesName: cleanName, season, episode };
+  // Pattern C: Episode X ... Season Y
+  m = t.match(/^(.*?)\s*(?:Episode|Eps|Ep)\.?\s*(\d+).*?(?:Season|Musim)\s*(\d+)(.*)$/i);
+  if (m) {
+    return {
+      seriesName: cleanSeriesName(m[1]),
+      season: parseInt(m[3], 10),
+      episode: parseInt(m[2], 10),
+      epTitle: m[4].trim(),
+    };
   }
 
-  // 4. Match standalone Episode X / Eps X / Ep X
-  const mEp = rawTitle.match(/(?:Episode|Eps|Ep)\.?\s*(\d+)/i);
-  if (mEp) {
-    const episode = parseInt(mEp[1], 10) || 1;
-    const mS = rawTitle.match(/(?:Season|Musim)\s*(\d+)/i);
-    const season = mS ? (parseInt(mS[1], 10) || 1) : 1;
-    const cleanName = rawTitle.replace(/(?:Episode|Eps|Ep)\.?\s*\d+.*/i, '');
-    return { seriesName: cleanName, season, episode };
+  // Pattern D: Musim X - YY (e.g. Rainbow Bubblegem Musim 2 - 09)
+  m = t.match(/^(.*?)\s*(?:Season|Musim)\s*(\d+)\s*[-–:]\s*(\d+)(.*)$/i);
+  if (m) {
+    return {
+      seriesName: cleanSeriesName(m[1]),
+      season: parseInt(m[2], 10),
+      episode: parseInt(m[3], 10),
+      epTitle: m[4].trim(),
+    };
+  }
+
+  // Pattern E: Title Episode / Eps / Ep XX (Numbered) (e.g. Marvel Ultimate Spider-man (2012) Dub Indo Episode 26)
+  m = t.match(/^(.*?)(?:\s+(?:dub\s*indo|dubbing\s*indonesia))?\s+(?:Episode|Eps|Ep)\.?\s*(\d+)(.*)$/i);
+  if (m) {
+    return {
+      seriesName: cleanSeriesName(m[1]),
+      season: 1,
+      episode: parseInt(m[2], 10),
+      epTitle: m[3].trim(),
+    };
+  }
+
+  // Pattern F: Named Episodes like: 'Spongebob Eps - Snooze You Lose Dubb Indonesia'
+  m = t.match(/^(.*?)\s+(?:Episode|Eps|Ep)\.?\s*[-–:]\s*(.+)$/i);
+  if (m) {
+    let epPart = m[2]
+      .replace(/\b(dub\s*indo|dubbing\s*indonesia|indo\s*dub|dubb\s*indonesia|bahasa\s*indonesia|720p?|1080p?|480p?)\b/gi, '')
+      .trim()
+      .replace(/[-_–—:.,\s]+$/g, '');
+    return {
+      seriesName: cleanSeriesName(m[1]),
+      season: 1,
+      episode: 0,
+      epTitle: epPart,
+    };
+  }
+
+  // Pattern G: Dash Number e.g. 'Marine Book - 08' or 'Marine Book- 10'
+  m = t.match(/^(.*?)\s*[-–]\s*(\d+)(.*)$/);
+  if (m && !/^(19|20)\d{2}/.test(m[2])) {
+    return {
+      seriesName: cleanSeriesName(m[1]),
+      season: 1,
+      episode: parseInt(m[2], 10),
+      epTitle: m[3].trim(),
+    };
+  }
+
+  // Pattern H: Specific well-known multi-episode shows
+  if (/^spongebob\b/i.test(t)) {
+    return {
+      seriesName: 'SpongeBob SquarePants',
+      season: 1,
+      episode: 0,
+      epTitle: t.replace(/^spongebob\s*(?:eps?|episode)?\s*[-–:]*\s*/i, '').replace(/\b(dub\s*indo|dubbing\s*indonesia|indo\s*dub|dubb\s*indonesia|bahasa\s*indonesia)\b/gi, '').trim(),
+    };
+  }
+  if (/^(?:little\s*)?kris(?:hna)?\b/i.test(t)) {
+    return {
+      seriesName: 'Little Krishna',
+      season: 1,
+      episode: 0,
+      epTitle: t.replace(/^(?:little\s*)?kris(?:hna)?\s*(?:eps?|episode)?\s*[-–:]*\s*/i, '').trim(),
+    };
+  }
+  if (/^marvel\s*ultimate\s*spider[\s-]*man/i.test(t)) {
+    return {
+      seriesName: 'Marvel Ultimate Spider-Man',
+      season: 1,
+      episode: 0,
+      epTitle: t,
+    };
   }
 
   return null;
@@ -94,8 +183,20 @@ export function extractSeriesInfo(rawTitle) {
  */
 export function normalizeSeriesKey(name) {
   if (!name) return '';
-  let c = name.toLowerCase();
-  c = c.replace(/\b(dub\s*indo|dubbing\s*indonesia|indo\s*dub|dub\s*malay|sub\s*indo)\b/gi, '');
+  let c = name.toLowerCase().replace(/[\u200B-\u200D\uFEFF\u2060]/g, '').trim();
+  c = c.replace(/^(?:nonton|download)\s+/i, '');
+
+  if (/spongebob/i.test(c)) return 'spongebob squarepants';
+  if (/ultimate\s*spider/i.test(c)) return 'marvel ultimate spider man';
+  if (/spiderman\s*the\s*new\s*animated/i.test(c)) return 'spiderman the new animated series';
+  if (/avatar.*(?:legend of aang|aang)/i.test(c)) return 'avatar the legend of aang';
+  if (/avatar.*last airbender/i.test(c)) return 'avatar the last airbender';
+  if (/penguins\s*of\s*madagascar/i.test(c)) return 'the penguins of madagascar';
+  if (/little\s*kris/i.test(c)) return 'little krishna';
+  if (/bubblegem/i.test(c)) return 'rainbow bubblegem';
+  if (/marine\s*book/i.test(c)) return 'marine book';
+
+  c = c.replace(/\b(dub\s*indo|dubbing\s*indonesia|indo\s*dub|dub\s*malay|sub\s*indo|dub\s*indonesia|bahasa\s*indonesia|dubb\s*indonesia)\b/gi, '');
   c = c.replace(/\b(1080p|720p|480p|hd|web-dl|blu\s*ray|remastered|end|final|on|season|musim)\b/gi, '');
   c = c.replace(/(\[.*?\]|\(.*?\))/g, '');
   c = c.replace(/[-_–—:.,]+/g, ' ');
@@ -109,10 +210,15 @@ export function normalizeSeriesKey(name) {
 export async function initSeriesIndex() {
   if (isSeriesIndexed) return;
 
-  const allMovies = await loadJson('all_content.json');
+  const [allMovies, latestMovies] = await Promise.all([
+    loadJson('all_content.json'),
+    loadJson('latest.json').catch(() => []),
+  ]);
+
   const tempMap = new Map();
 
-  for (const movie of allMovies) {
+  function addMovieToTemp(movie) {
+    if (!movie || !movie.title) return;
     const info = extractSeriesInfo(movie.title);
     if (info) {
       const key = normalizeSeriesKey(info.seriesName);
@@ -120,14 +226,24 @@ export async function initSeriesIndex() {
         if (!tempMap.has(key)) {
           tempMap.set(key, []);
         }
-        tempMap.get(key).push({
-          movie,
-          season: info.season,
-          episode: info.episode,
-          label: `Eps ${info.episode}`,
-        });
+        const existing = tempMap.get(key);
+        if (!existing.some((e) => e.movie.id === movie.id || (movie.slug && e.movie.slug === movie.slug))) {
+          existing.push({
+            movie,
+            season: info.season,
+            episode: info.episode,
+            label: info.episode > 0 ? `Eps ${info.episode}` : (info.epTitle ? `Eps: ${info.epTitle}` : 'Eps'),
+          });
+        }
       }
     }
+  }
+
+  for (const movie of allMovies) {
+    addMovieToTemp(movie);
+  }
+  for (const movie of latestMovies) {
+    addMovieToTemp(movie);
   }
 
   // Filter groups with >= 2 episodes and sort ascending
@@ -135,7 +251,8 @@ export async function initSeriesIndex() {
     if (episodes.length >= 2) {
       episodes.sort((a, b) => {
         if (a.season !== b.season) return a.season - b.season;
-        return a.episode - b.episode;
+        if (a.episode > 0 && b.episode > 0) return a.episode - b.episode;
+        return (a.label || '').localeCompare(b.label || '');
       });
 
       seriesMap.set(key, episodes);
@@ -264,7 +381,7 @@ export function parseDurationToSeconds(durationStr) {
 }
 
 /**
- * Filter out Short Videos (< 10 mins), Anime, and non-Netflix Indonesian films
+ * Filter out Short Videos (< 10 mins), Anime, non-Netflix Indonesian films, and Indian content
  */
 const animeKeywords = [
   'anime', 'aikatsu', 'naruto', 'boruto', 'one piece', 'dragon ball', 'doraemon',
@@ -290,6 +407,17 @@ const indoLocalKeywords = [
 
 const indoLocalUploaders = [
   'senada', 'fachrya895', 'theodorus fabian lunel', 'lukipurwanto', 'joharman hutabalian', 'dimas 227'
+];
+
+const indianKeywords = [
+  'india', 'indian', 'bollywood', 'hindi', 'tamil', 'telugu', 'malayalam',
+  'punjabi', 'kollywood', 'tollywood', 'krishna', 'krisna', 'little krishna',
+  'little krisna', 'radha', 'mahabharata', 'ramayana', 'shiva', 'bheem',
+  'chhota bheem', 'motu patlu', 'grand masti', 'masti', 'krrish', 'dhoom',
+  'shah rukh', 'shahrukh', 'salman khan', 'aamir khan', 'deepika',
+  'ranbir', 'katrina kaif', 'kareena', 'akshay kumar', 'hrithik',
+  'amitabh bachchan', 'baahubali', 'dangal', 'pushpa', 'kgf', 'pathaan',
+  'jawan', 'chennai express', 'kuch kuch', 'kabhi khushi'
 ];
 
 export function isAllowedInLatest(movie) {
@@ -333,6 +461,14 @@ export function isAllowedInLatest(movie) {
     if (!isNetflix) {
       return false;
     }
+  }
+
+  // 4. FILTER FILM & SERIAL INDIA / BOLLYWOOD
+  if (cat.includes('india') || tags.includes('india') || cat.includes('bollywood') || tags.includes('bollywood')) {
+    return false;
+  }
+  if (indianKeywords.some((k) => title.includes(k) || tags.includes(k) || desc.includes(k))) {
+    return false;
   }
 
   return true;

@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """
 McDubindoFlix Incremental Scraper & Catalog Updater
 ===================================================
@@ -62,6 +62,8 @@ INDIAN_PATTERNS = [
     r"\bkrrish\b", r"\bdhoom\b", r"\bdabbang\b", r"\braees\b", r"\bzero\b",
     r"\bdon\s*2\b", r"\bkal\s*ho\s*naa\s*ho\b", r"\bveer\s*zaara\b", r"\bdevdas\b",
     r"\blagaan\b", r"\btaare\s*zameen\b", r"\bpk\b", r"\bsanjoo\b", r"\bwar\b.*hrithik",
+    r"\bkrishna\b", r"\bkrisna\b", r"\bmasti\b", r"\bgrand\s*masti\b", r"\bshiva\b",
+    r"\bchhota\s*bheem\b", r"\bmotu\s*patlu\b", r"\bmahabharata\b", r"\bramayana\b",
     r"sub__698",
 ]
 

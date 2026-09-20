@@ -1,6 +1,6 @@
 import React from 'react';
 import { Clock, ChevronRight, Play } from 'lucide-react';
-import { getCleanSeriesTitle } from '../services/dataService';
+import { getCleanSeriesTitle, isSeries, getSeriesEpisodeCount } from '../services/dataService';
 
 export default function LatestMoviesRail({
   movies = [],
@@ -45,6 +45,8 @@ export default function LatestMoviesRail({
       <div className="flex items-center gap-3.5 overflow-x-auto pb-3 pt-1 no-scrollbar -mx-3 px-3 sm:mx-0 sm:px-0">
         {movies.map((movie) => {
           const displayTitle = getCleanSeriesTitle(movie);
+          const isSeriesItem = isSeries(movie);
+          const episodeCount = getSeriesEpisodeCount(movie);
 
           return (
             <div
@@ -68,12 +70,16 @@ export default function LatestMoviesRail({
                   BARU
                 </div>
 
-                {/* Duration */}
-                {movie.duration && (
+                {/* Duration or Series Episode Count */}
+                {isSeriesItem && episodeCount >= 2 ? (
+                  <div className="absolute bottom-2 right-2 text-[10px] font-bold bg-cyan-950/90 text-[#00E5FF] px-1.5 py-0.5 rounded border border-cyan-500/40 shadow">
+                    {episodeCount} EPS
+                  </div>
+                ) : movie.duration ? (
                   <div className="absolute bottom-2 right-2 text-[10px] font-mono bg-black/70 px-1.5 py-0.5 rounded text-slate-300 border border-white/10">
                     {movie.duration}
                   </div>
-                )}
+                ) : null}
 
                 {/* Hover Play Button */}
                 <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
