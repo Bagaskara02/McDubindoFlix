@@ -25,12 +25,11 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          cache: 'pip'
 
       - name: Install Scraper Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install requests beautifulsoup4
+          pip install -r requirements.txt
 
       - name: Run Incremental Catalog Updater
         run: |
@@ -45,5 +44,5 @@ jobs:
             echo "No changes in catalog."
           else
             git commit -m "chore(catalog): auto-update movies, series & stream sources"
-            git push origin main
+            git push origin HEAD:main
           fi
