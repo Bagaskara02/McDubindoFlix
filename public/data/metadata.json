@@ -1,17 +1,17 @@
 {
   "title": "DubbindoFlix API - Film & Series Dubbing Indonesia",
   "description": "API Film Box Office, Series Netflix, Disney+, dan Film Populer Dubbing Bahasa Indonesia (Non-India, Non-Anime)",
-  "updated_at": "2026-10-05T20:24:57.010795",
+  "updated_at": "2026-10-06T05:40:29.231372",
   "stats": {
-    "total_content": 2507,
-    "total_movies": 1008,
-    "total_series": 1144,
+    "total_content": 2510,
+    "total_movies": 1009,
+    "total_series": 1146,
     "total_popular": 2210,
     "total_boxoffice": 592,
     "total_netflix": 354,
     "total_disney": 319,
     "total_trending": 25,
-    "total_stream_sources": 6049
+    "total_stream_sources": 6058
   },
   "platforms_available": [
     "Box Office",
